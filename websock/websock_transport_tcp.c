@@ -122,6 +122,8 @@ static pj_status_t tp_connect(pj_websock_transport_t *t,
         return status;
     }
 
+    pj_util_disable_tcp_timewait(sock);
+
     pj_activesock_cfg_default(&cfg);
     pj_bzero(&cb, sizeof(cb));
     cb.on_connect_complete = on_connect_complete;
@@ -320,6 +322,8 @@ static pj_bool_t on_accept_complete(pj_activesock_t *asock,
         goto on_error;
     }
     tcp_tp = (struct tcp_transport *)new_tp;
+
+    pj_util_disable_tcp_timewait(newsock);
 
     pool = new_tp->pool;
     pj_activesock_cfg_default(&cfg);

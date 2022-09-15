@@ -1,11 +1,6 @@
 #include <stdio.h>
 #include <string.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <signal.h>
-
 #include <pjlib.h>
-#include <pjlib-util.h>
 
 #include "websock.h"
 
