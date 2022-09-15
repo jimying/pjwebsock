@@ -18,6 +18,9 @@ static pj_pool_factory *g_app_pf = &g_app_cp.factory;
 static pj_pool_t *g_app_pool = NULL;
 static pj_thread_t *g_evt_thread = NULL;
 
+static pj_ioqueue_t *g_ioq = NULL;
+static pj_timer_heap_t *g_timer_heap = NULL;
+
 // websock
 static pj_websock_endpoint *g_ws_endpt = NULL;
 
@@ -41,20 +44,36 @@ static void app_destroy()
         pj_websock_endpt_destroy(g_ws_endpt);
     }
 
+    if (g_ioq)
+    {
+        pj_ioqueue_destroy(g_ioq);
+    }
+
+    if (g_timer_heap)
+    {
+        pj_timer_heap_destroy(g_timer_heap);
+    }
+
     pj_pool_release(g_app_pool);
     pj_caching_pool_destroy(&g_app_cp);
     pj_shutdown();
 }
 
-static int PJ_THREAD_FUNC work_proc(void *arg)
+static int work_proc(void *arg)
 {
-    pj_ioqueue_t *ioq = (pj_ioqueue_t *)arg;
     while (!g_quit)
     {
         pj_time_val timeout = { 0, 20 };
-        pj_ioqueue_poll(ioq, &timeout);
+        pj_time_val timeout2 = { 0, 0 };
+
+        pj_timer_heap_poll(g_timer_heap, &timeout2);
+
+        if (PJ_TIME_VAL_GT(timeout, timeout2))
+        {
+            timeout = timeout2;
+        }
+        pj_ioqueue_poll(g_ioq, &timeout);
     }
-    pj_ioqueue_destroy(ioq);
     return 0;
 }
 
@@ -144,8 +163,6 @@ int main(int argc, char **argv)
 {
     int status;
     char cmd[80];
-    pj_ioqueue_t *ioq;
-    pj_timer_heap_t *timer_heap;
     unsigned log_decor;
 
     /* pjlib init */
@@ -167,14 +184,14 @@ int main(int argc, char **argv)
 
     /* create websock endpoint */
     {
-        status = pj_ioqueue_create(g_app_pool, PJ_IOQUEUE_MAX_HANDLES, &ioq);
+        status = pj_ioqueue_create(g_app_pool, PJ_IOQUEUE_MAX_HANDLES, &g_ioq);
         if (status != PJ_SUCCESS)
         {
             PJ_PERROR(1, (THIS_FILE, status, "create ioqueue error"));
             goto on_error;
         }
 
-        status = pj_timer_heap_create(g_app_pool, 128, &timer_heap);
+        status = pj_timer_heap_create(g_app_pool, 128, &g_timer_heap);
         if (status != PJ_SUCCESS)
         {
             PJ_PERROR(1, (THIS_FILE, status, "create timer heap error"));
@@ -190,8 +207,8 @@ int main(int argc, char **argv)
         pj_websock_endpt_cfg opt;
         pj_websock_endpt_cfg_default(&opt);
         opt.pf = g_app_pf;
-        opt.ioq = ioq;
-        opt.timer_heap = timer_heap;
+        opt.ioq = g_ioq;
+        opt.timer_heap = g_timer_heap;
         opt.cert = &cert;
 
         status = pj_websock_endpt_create(&opt, &g_ws_endpt);
@@ -202,7 +219,7 @@ int main(int argc, char **argv)
         }
 
         /* start ioqueue poll thread */
-        pj_thread_create(g_app_pool, "thr_evt", work_proc, ioq, 0, 0,
+        pj_thread_create(g_app_pool, "thr_evt", work_proc, NULL, 0, 0,
                          &g_evt_thread);
     }
 

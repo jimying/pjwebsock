@@ -223,11 +223,12 @@ static pj_status_t tp_destroy(pj_websock_transport_t *t)
     {
         pj_ssl_sock_close(tp->ssock);
         tp->ssock = NULL;
+    }
 
-        if (tp->pool_own)
-        {
-            pj_pool_release(tp->pool_own);
-        }
+    if (tp->pool_own)
+    {
+        pj_pool_release(tp->pool_own);
+        tp->pool_own = NULL;
     }
 
     return PJ_SUCCESS;

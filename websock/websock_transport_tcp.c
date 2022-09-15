@@ -247,11 +247,12 @@ static pj_status_t tp_destroy(pj_websock_transport_t *t)
     {
         pj_activesock_close(tp->asock);
         tp->asock = NULL;
+    }
 
-        if (tp->pool_own)
-        {
-            pj_pool_release(tp->pool_own);
-        }
+    if (tp->pool_own)
+    {
+        pj_pool_release(tp->pool_own);
+        tp->pool_own = NULL;
     }
 
     return PJ_SUCCESS;
