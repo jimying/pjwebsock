@@ -7,7 +7,7 @@
 
 #define THIS_FILE "websock.c"
 
-static const pj_time_val DELAY_TIMEOUT = { 10, 0 };
+static const pj_time_val NEGOTIATE_TIMEOUT = { 10, 0 };
 enum {
     TIMER_ID_NONE,
     TIMER_ID_TIMEOUT,
@@ -351,6 +351,8 @@ pj_status_t pj_websock_connect(pj_websock_endpoint *endpt,
     PJ_ASSERT_RETURN(url && url[0], PJ_EINVAL);
     PJ_ASSERT_RETURN(pc, PJ_EINVAL);
 
+    PJ_LOG(4, (THIS_FILE, "Connecting to url: %s", url));
+
     pool = pj_pool_create(endpt->pf, "websock_c%p", 1000, 1000, NULL);
     PJ_ASSERT_RETURN(pool, PJ_ENOMEM);
 
@@ -373,9 +375,6 @@ pj_status_t pj_websock_connect(pj_websock_endpoint *endpt,
     c->tp_type = tp_type;
     pj_sockaddr_init(af, &c->peer, &host, port);
     pj_sockaddr_print(&c->peer, buf, sizeof(buf), 3);
-
-    PJ_LOG(4, (THIS_FILE, "proto: %s, address: %s, path:%.*s",
-               tp_type ? "WSS" : "WS", buf, (int)path.slen, path.ptr));
 
     /* Fill websock http request info */
     c->http_req = http_req = PJ_POOL_ZALLOC_T(pool, struct http_req_hdr);
@@ -599,8 +598,6 @@ pj_status_t pj_websock_send(pj_websock_t *c,
         return status;
     }
 
-    PJ_LOG(2, (THIS_FILE, "send, pending..."));
-
     return PJ_EPENDING;
 }
 
@@ -632,7 +629,7 @@ pj_status_t pj_websock_listen(pj_websock_endpoint *endpt,
     tp_param.max_rx_bufsize = endpt->max_rx_bufsize;
 
     pj_sockaddr_print(local_addr, sbuf, sizeof(sbuf), 3);
-    PJ_LOG(3, (THIS_FILE, "listen %s %s", sbuf,
+    PJ_LOG(4, (THIS_FILE, "Listen %s %s", sbuf,
                pj_websock_transport_str(tp_type)));
 
     switch (tp_type)
@@ -889,7 +886,7 @@ static pj_bool_t on_connect_complete(pj_websock_transport_t *t,
 {
     pj_websock_t *c = (pj_websock_t *)t->user_data;
 
-    PJ_PERROR(4, (THIS_FILE, status, "%s() %s status:%d", __FUNCTION__,
+    PJ_PERROR(6, (THIS_FILE, status, "%s() %s status:%d", __FUNCTION__,
                   c->pool->obj_name, status));
 
     if (status != PJ_SUCCESS)
@@ -949,7 +946,7 @@ static pj_bool_t on_connect_complete(pj_websock_transport_t *t,
         *p = '\0';
 
         size = p - buf;
-        PJ_LOG(4, (THIS_FILE, "request:\n[%s], len=%d", buf, size));
+        PJ_LOG(5, (THIS_FILE, "TX to %s:\n%s", c->pool->obj_name, buf));
 
         tdata->pool = pool;
         tdata->data = buf;
@@ -959,7 +956,8 @@ static pj_bool_t on_connect_complete(pj_websock_transport_t *t,
 
         /* start timer to check if recv peer response timeout */
         c->timer.id = TIMER_ID_TIMEOUT;
-        pj_timer_heap_schedule(c->endpt->timer_heap, &c->timer, &DELAY_TIMEOUT);
+        pj_timer_heap_schedule(c->endpt->timer_heap, &c->timer,
+                               &NEGOTIATE_TIMEOUT);
     }
 
     return PJ_TRUE;
@@ -974,10 +972,6 @@ static pj_bool_t on_accept_complete(pj_websock_transport_t *t,
     pj_websock_t *newc;
     pj_websock_endpoint *endpt = parent->endpt;
     pj_pool_t *pool;
-    char buf[80];
-
-    PJ_LOG(5, (THIS_FILE, "%s() %s", __FUNCTION__,
-               pj_sockaddr_print(src_addr, buf, sizeof(buf), 3)));
 
     /* new websocket connection */
     pool = pj_pool_create(endpt->pf, "websock_s%p", 1000, 1000, NULL);
@@ -1001,7 +995,7 @@ static pj_bool_t on_accept_complete(pj_websock_transport_t *t,
 
     /* start timer to check if recv peer request timeout */
     newc->timer.id = TIMER_ID_TIMEOUT;
-    pj_timer_heap_schedule(endpt->timer_heap, &newc->timer, &DELAY_TIMEOUT);
+    pj_timer_heap_schedule(endpt->timer_heap, &newc->timer, &NEGOTIATE_TIMEOUT);
 
     return PJ_TRUE;
 }
@@ -1040,7 +1034,7 @@ static pj_status_t http_reply_forbidden(pj_websock_t *c)
                           "Content-Length: 0\r\n"
                           "\r\n");
     tx_len = p - (char *)tdata->data;
-    PJ_LOG(4, (THIS_FILE, "TX to %s\n[%.*s]", c->pool->obj_name, (int)tx_len,
+    PJ_LOG(5, (THIS_FILE, "TX to %s:\n%.*s", c->pool->obj_name, (int)tx_len,
                (char *)tdata->data));
     pj_websock_transport_send(c->tp, &tdata->send_key, tdata->data, &tx_len, 0);
 
@@ -1082,7 +1076,7 @@ static pj_status_t http_reply_switching(pj_websock_t *c,
     *p++ = '\n';
     tx_len = p - (char *)tdata->data;
 
-    PJ_LOG(4, (THIS_FILE, "TX to %s\n[%.*s]", c->pool->obj_name, (int)tx_len,
+    PJ_LOG(5, (THIS_FILE, "TX to %s:\n%.*s", c->pool->obj_name, (int)tx_len,
                (char *)tdata->data));
     pj_websock_transport_send(c->tp, &tdata->send_key, tdata->data, &tx_len, 0);
 
@@ -1123,7 +1117,7 @@ again:
         /* parse the http response */
         struct http_rsp_hdr rsp;
         pj_size_t parse_len = 0;
-        PJ_LOG(4, (THIS_FILE, "%s start parse response:\n%.*s",
+        PJ_LOG(5, (THIS_FILE, "%s start parse response:\n%.*s",
                    c->pool->obj_name, (int)left_size, pdata));
         status = parse_http_rsp(pdata, left_size, &rsp, &parse_len);
         if (status != PJ_SUCCESS)
@@ -1177,7 +1171,7 @@ again:
         /* Parse the http request */
         struct http_req_hdr req;
         pj_size_t parse_len = 0;
-        PJ_LOG(4, (THIS_FILE, "%s start parse request:\n%.*s",
+        PJ_LOG(5, (THIS_FILE, "%s start parse request:\n%.*s",
                    c->pool->obj_name, (int)left_size, pdata));
         status = parse_http_req(pdata, left_size, &req, &parse_len);
         if (status != PJ_SUCCESS)
@@ -1394,11 +1388,8 @@ static pj_bool_t on_data_sent(pj_websock_transport_t *t,
     pj_websock_tx_data *tdata = (pj_websock_tx_data *)send_key->user_data;
     PJ_LOG(6, (THIS_FILE, "%s() %s sent:%d", __FUNCTION__, c->pool->obj_name,
                sent));
-    if (c->state == PJ_WEBSOCK_STATE_OPEN)
-    {
-        if (c->cb.on_tx_msg)
-            c->cb.on_tx_msg(c, tdata, sent);
-    }
+    if (c->cb.on_tx_msg)
+        c->cb.on_tx_msg(c, tdata, sent);
 
     pj_pool_release(tdata->pool);
 

@@ -27,7 +27,7 @@ static void print_usage(void)
 {
     puts("\n==============================\n");
     puts("Usage:");
-    puts("\tq   quit app");
+    puts("\tq   quit");
     puts("\n==============================\n");
 }
 
@@ -107,9 +107,9 @@ static pj_bool_t on_rx_msg(pj_websock_t *c,
     if (hdr->opcode == PJ_WEBSOCK_OP_TEXT)
     {
         PJ_LOG(4, (THIS_FILE,
-                   "RX.%p from %s\n"
+                   "RX from %s:\n"
                    "TEXT %s %ld/%ld/%ld [%.*s]",
-                   c, pj_websock_print(c, buf, sizeof(buf)),
+                   pj_websock_print(c, buf, sizeof(buf)),
                    hdr->mask ? "(masked)" : "", hdr->len, msg->has_read,
                    msg->data_len, (int)msg->data_len, data));
 
@@ -118,22 +118,61 @@ static pj_bool_t on_rx_msg(pj_websock_t *c,
     }
     else if (hdr->opcode == PJ_WEBSOCK_OP_PING)
     {
-        PJ_LOG(4, (THIS_FILE, "RX.%p from %s PING", c,
+        PJ_LOG(4, (THIS_FILE, "RX from %s PING",
                    pj_websock_print(c, buf, sizeof(buf))));
         /* response pong */
         pj_websock_send(c, PJ_WEBSOCK_OP_PONG, PJ_TRUE, PJ_TRUE, NULL, 0);
     }
     else if (hdr->opcode == PJ_WEBSOCK_OP_PONG)
     {
-        PJ_LOG(4, (THIS_FILE, "RX.%p from %s PONG", c,
+        PJ_LOG(4, (THIS_FILE, "RX from %s PONG",
                    pj_websock_print(c, buf, sizeof(buf))));
     }
     else if (hdr->opcode == PJ_WEBSOCK_OP_CLOSE)
     {
-        PJ_LOG(4, (THIS_FILE, "RX.%p from %s CLOSE", c,
+        PJ_LOG(4, (THIS_FILE, "RX from %s CLOSE",
                    pj_websock_print(c, buf, sizeof(buf))));
         pj_websock_close(c, PJ_WEBSOCK_SC_GOING_AWAY, NULL);
         return PJ_FALSE; /* Must return false to stop read any more */
+    }
+
+    return PJ_TRUE;
+}
+
+static pj_bool_t on_tx_msg(pj_websock_t *c,
+                           pj_websock_tx_data *msg,
+                           pj_ssize_t sent)
+{
+    pj_websock_frame_hdr *hdr;
+    char *data;
+    char buf[1000];
+
+    hdr = &msg->hdr;
+    data = (char *)msg->data;
+
+    if (hdr->opcode == PJ_WEBSOCK_OP_TEXT)
+    {
+        PJ_LOG(4, (THIS_FILE,
+                   "TX to %s:\n"
+                   "TEXT %s %ld/%ld [%.*s]",
+                   pj_websock_print(c, buf, sizeof(buf)),
+                   hdr->mask ? "(masked)" : "", hdr->len, sent, (int)hdr->len,
+                   data));
+    }
+    else if (hdr->opcode == PJ_WEBSOCK_OP_PING)
+    {
+        PJ_LOG(4, (THIS_FILE, "TX to %s PING",
+                   pj_websock_print(c, buf, sizeof(buf))));
+    }
+    else if (hdr->opcode == PJ_WEBSOCK_OP_PONG)
+    {
+        PJ_LOG(4, (THIS_FILE, "TX to %s PONG",
+                   pj_websock_print(c, buf, sizeof(buf))));
+    }
+    else if (hdr->opcode == PJ_WEBSOCK_OP_CLOSE)
+    {
+        PJ_LOG(4, (THIS_FILE, "TX to %s CLOSE",
+                   pj_websock_print(c, buf, sizeof(buf))));
     }
 
     return PJ_TRUE;
@@ -151,6 +190,7 @@ static int on_accept_complete(pj_websock_t *c,
     /* set new websocket connection user callbacks and user data */
     pj_bzero(&cb, sizeof(cb));
     cb.on_rx_msg = on_rx_msg;
+    cb.on_tx_msg = on_tx_msg;
     pj_websock_set_callbacks(c, &cb);
     pj_websock_set_userdata(c, NULL); // TODO:
 
@@ -177,7 +217,7 @@ int main(int argc, char **argv)
     log_decor |= PJ_LOG_HAS_LEVEL_TEXT;
     log_decor |= PJ_LOG_HAS_SENDER;
     pj_log_set_decor(log_decor);
-    pj_log_set_level(4);
+    pj_log_set_level(5);
 
     /* init random */
     pj_time_val now;
@@ -284,6 +324,7 @@ int main(int argc, char **argv)
         pj_bzero(&cb, sizeof(cb));
         cb.on_connect_complete = on_connect_complete;
         cb.on_rx_msg = on_rx_msg;
+        cb.on_tx_msg = on_tx_msg;
 
         {
             hdr.key = pj_str("Sec-WebSocket-Protocol");
