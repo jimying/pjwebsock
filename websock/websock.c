@@ -470,6 +470,7 @@ pj_status_t pj_websock_close(pj_websock_t *c, int code, const char *reason)
 
 pj_uint64_t pj_htonll(pj_uint64_t v)
 {
+#if PJ_IS_LITTLE_ENDIAN
     pj_uint64_t h = 0;
     pj_uint8_t *p = (pj_uint8_t *)&v;
 
@@ -483,10 +484,13 @@ pj_uint64_t pj_htonll(pj_uint64_t v)
     h |= (pj_uint64_t)*p << 0;
 
     return h;
+#endif
+    return v;
 }
 
 pj_uint64_t pj_ntohll(pj_uint64_t v)
 {
+#if PJ_IS_LITTLE_ENDIAN
     pj_uint64_t h;
     pj_uint8_t *p = (pj_uint8_t *)&h;
 
@@ -500,6 +504,8 @@ pj_uint64_t pj_ntohll(pj_uint64_t v)
     *p = (pj_uint8_t)(v >> 0 & 0xff);
 
     return h;
+#endif
+    return v;
 }
 
 pj_status_t pj_websock_send(pj_websock_t *c,
