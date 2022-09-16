@@ -332,6 +332,23 @@ pj_status_t pj_websock_set_userdata(pj_websock_t *c, const void *user_data);
  */
 const void *pj_websock_get_userdata(pj_websock_t *c);
 
+/**
+ * enable/disable websocket ping timer (auto send ping)
+ *
+ * @param c    The websocket connection object
+ * @param t    The interval timeout to send ping message. if NULL, disable
+ *
+ * @return PJ_SUCCESS if successful
+ */
+pj_status_t pj_websock_enable_ping(pj_websock_t *c, pj_time_val *t);
+
+/**
+ * Whether websocket connection is incoming
+ *
+ * @param c    The websocket connection object
+ * @return     PJ_TRUE is incoming, else outgoing
+ */
+pj_bool_t pj_websock_is_incoming(pj_websock_t *c);
 
 /** Get websocket ready state
  *

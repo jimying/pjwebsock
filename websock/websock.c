@@ -11,6 +11,7 @@ static const pj_time_val DELAY_TIMEOUT = { 10, 0 };
 enum {
     TIMER_ID_NONE,
     TIMER_ID_TIMEOUT,
+    TIMER_ID_PING,
 };
 
 struct pj_websock_endpoint {
@@ -62,8 +63,9 @@ struct pj_websock_t {
     pj_websock_cb cb;      /**< callbacks */
     const void *user_data; /**< user data */
 
-    pj_bool_t is_srv;                  /**< whether is server side */
-    pj_websock_t *parent;              /**< parent (only is_srv=true)  */
+    pj_bool_t is_srv;                  /**< whether is a server (listening) */
+    pj_bool_t is_incoming;             /**< whether is incoming connection */
+    pj_websock_t *parent;              /**< parent (only is_incoming=true)  */
     pj_websock_readystate state;       /**< current state */
     pj_sockaddr peer;                  /**< peer address */
     pj_websock_transport_type tp_type; /**< transport type */
@@ -86,6 +88,7 @@ struct pj_websock_t {
     pj_websock_rx_data rdata;
 
     pj_timer_entry timer;
+    pj_time_val ping_interval;
 };
 
 static pj_bool_t on_connect_complete(pj_websock_transport_t *t,
@@ -292,24 +295,35 @@ static void timer_callback(pj_timer_heap_t *heap, pj_timer_entry *e)
     char buf[1000];
     PJ_UNUSED_ARG(heap);
 
-    PJ_LOG(2, (THIS_FILE, "!! %s negotiate timeout",
-               pj_websock_print(c, buf, sizeof(buf))));
-
-    pj_assert(c->state == PJ_WEBSOCK_STATE_CONNECTING);
-    c->timer.id = TIMER_ID_NONE;
-    if (c->is_srv == PJ_FALSE)
+    if (c->timer.id == TIMER_ID_TIMEOUT)
     {
-        /* outgoing request no response */
-        if (c->cb.on_connect_complete)
-            c->cb.on_connect_complete(c, PJ_ETIMEDOUT);
-    }
-    else
-    {
-        /* incoming connection no request */
-    }
+        PJ_LOG(2, (THIS_FILE, "!! %s negotiate timeout",
+                   pj_websock_print(c, buf, sizeof(buf))));
+        pj_assert(c->state == PJ_WEBSOCK_STATE_CONNECTING);
+        c->timer.id = TIMER_ID_NONE;
+        if (c->is_incoming)
+        {
+            /* incoming connection no request */
+        }
+        else
+        {
+            /* outgoing request no response */
+            if (c->cb.on_connect_complete)
+                c->cb.on_connect_complete(c, PJ_ETIMEDOUT);
+        }
 
-    /* close */
-    pj_websock_close(c, PJ_WEBSOCK_SC_ABNORMAL_CLOSURE, NULL);
+        /* close */
+        pj_websock_close(c, PJ_WEBSOCK_SC_ABNORMAL_CLOSURE, NULL);
+    }
+    else if (c->timer.id == TIMER_ID_PING)
+    {
+        pj_assert(c->state == PJ_WEBSOCK_STATE_OPEN);
+        pj_websock_send(c, PJ_WEBSOCK_OP_PING, PJ_TRUE, !c->is_incoming, 0, 0);
+
+        /* next */
+        pj_timer_heap_schedule(c->endpt->timer_heap, &c->timer,
+                               &c->ping_interval);
+    }
 }
 
 pj_status_t pj_websock_connect(pj_websock_endpoint *endpt,
@@ -710,6 +724,49 @@ const void *pj_websock_get_userdata(pj_websock_t *c)
     return c->user_data;
 }
 
+pj_status_t pj_websock_enable_ping(pj_websock_t *c, pj_time_val *t)
+{
+    PJ_ASSERT_RETURN(c, PJ_EINVAL);
+    PJ_ASSERT_RETURN(!c->is_srv, PJ_EINVALIDOP); /* should't listening server */
+
+    if (t && PJ_TIME_VAL_MSEC(*t))
+    {
+        /* enable*/
+        if (c->state != PJ_WEBSOCK_STATE_OPEN)
+        {
+            PJ_LOG(2, (THIS_FILE, "%s state is not OPEN", c->pool->obj_name));
+            return PJ_EINVALIDOP;
+        }
+
+        if (c->timer.id != TIMER_ID_NONE)
+        {
+            return PJ_EIGNORED;
+        }
+
+        pj_timer_heap_schedule(c->endpt->timer_heap, &c->timer, t);
+        c->timer.id = TIMER_ID_PING;
+        c->ping_interval = *t;
+    }
+    else
+    {
+        /* disable */
+        if (c->timer.id != TIMER_ID_PING)
+        {
+            return PJ_EIGNORED;
+        }
+        pj_timer_heap_cancel(c->endpt->timer_heap, &c->timer);
+        c->timer.id = TIMER_ID_NONE;
+    }
+
+    return PJ_SUCCESS;
+}
+
+pj_bool_t pj_websock_is_incoming(pj_websock_t *c)
+{
+    PJ_ASSERT_RETURN(c, PJ_FALSE);
+    return c->is_incoming;
+}
+
 const char *pj_websock_get_request_path(pj_websock_t *c)
 {
     PJ_ASSERT_RETURN(c, NULL);
@@ -798,6 +855,7 @@ pj_status_t pj_websock_set_support_path(pj_websock_t *srv,
 {
     int i = 0;
     PJ_ASSERT_RETURN(srv, PJ_EINVAL);
+    PJ_ASSERT_RETURN(srv->is_srv, PJ_EINVALIDOP);
     PJ_ASSERT_RETURN(cnt <= PJ_WEBSOCK_MAX_PATH_CNT, PJ_ETOOMANY);
 
     for (i = 0; i < cnt; i++)
@@ -814,6 +872,7 @@ pj_status_t pj_websock_set_support_subproto(pj_websock_t *srv,
 {
     int i = 0;
     PJ_ASSERT_RETURN(srv, PJ_EINVAL);
+    PJ_ASSERT_RETURN(srv->is_srv, PJ_EINVALIDOP);
     PJ_ASSERT_RETURN(cnt <= PJ_WEBSOCK_MAX_SUB_PROTO_CNT, PJ_ETOOMANY);
 
     for (i = 0; i < cnt; i++)
@@ -917,7 +976,7 @@ static pj_bool_t on_accept_complete(pj_websock_transport_t *t,
     pj_pool_t *pool;
     char buf[80];
 
-    PJ_LOG(4, (THIS_FILE, "%s() %s", __FUNCTION__,
+    PJ_LOG(5, (THIS_FILE, "%s() %s", __FUNCTION__,
                pj_sockaddr_print(src_addr, buf, sizeof(buf), 3)));
 
     /* new websocket connection */
@@ -927,7 +986,7 @@ static pj_bool_t on_accept_complete(pj_websock_transport_t *t,
     newc->state = PJ_WEBSOCK_STATE_CONNECTING;
     newc->pool = pool;
     newc->endpt = endpt;
-    newc->is_srv = PJ_TRUE;
+    newc->is_incoming = PJ_TRUE;
     pj_sockaddr_cp(&newc->peer, src_addr);
     newc->tp = newt;
     newc->tp_type = parent->tp_type;
@@ -1057,7 +1116,7 @@ again:
         c->timer.id = TIMER_ID_NONE;
     }
 
-    if (c->state == PJ_WEBSOCK_STATE_CONNECTING && c->is_srv == PJ_FALSE)
+    if (c->state == PJ_WEBSOCK_STATE_CONNECTING && c->is_incoming == PJ_FALSE)
     {
         /* Outgoing websock connection recv http response */
 
@@ -1087,7 +1146,7 @@ again:
                                          &c->http_req->websock_key))
             {
                 /* parse error */
-                PJ_LOG(1, (THIS_FILE, "verify websock-accept fail"));
+                PJ_LOG(1, (THIS_FILE, "validate websock-accept fail"));
                 if (c->cb.on_connect_complete)
                     c->cb.on_connect_complete(c, -PJ_WEBSOCK_SC_PROTOCOL_ERROR);
                 pj_websock_close(c, PJ_WEBSOCK_SC_PROTOCOL_ERROR, NULL);
@@ -1110,7 +1169,8 @@ again:
             pdata += parse_len;
         }
     }
-    else if (c->state == PJ_WEBSOCK_STATE_CONNECTING && c->is_srv == PJ_TRUE)
+    else if (c->state == PJ_WEBSOCK_STATE_CONNECTING &&
+             c->is_incoming == PJ_TRUE)
     {
         /* Incoming websock connection recv http request */
 
@@ -1638,7 +1698,7 @@ static pj_bool_t validate_websock_accept(const pj_str_t *accept,
 
     generate_websock_accept(key, buf, &len);
 
-    PJ_LOG(4, (THIS_FILE, "validate accept:%.*s, out:%.*s", (int)accept->slen,
+    PJ_LOG(6, (THIS_FILE, "validate accept:%.*s, out:%.*s", (int)accept->slen,
                accept->ptr, len, buf));
 
     if (pj_stricmp2(accept, buf) == 0)

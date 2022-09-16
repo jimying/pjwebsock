@@ -21,7 +21,6 @@ static pj_thread_t *g_evt_thread = NULL;
 static pj_ioqueue_t *g_ioq = NULL;
 static pj_timer_heap_t *g_timer_heap = NULL;
 
-// websock
 static pj_websock_endpoint *g_ws_endpt = NULL;
 
 static void print_usage(void)
@@ -144,9 +143,12 @@ static int on_accept_complete(pj_websock_t *c,
                               const pj_sockaddr_t *src_addr,
                               int src_addr_len)
 {
-    PJ_LOG(4, (THIS_FILE, "accept new connection..."));
     pj_websock_cb cb;
+    char buf[1000];
+    PJ_LOG(4, (THIS_FILE, "accept new connection...%s",
+               pj_websock_print(c, buf, sizeof(buf))));
 
+    /* set new websocket connection user callbacks and user data */
     pj_bzero(&cb, sizeof(cb));
     cb.on_rx_msg = on_rx_msg;
     pj_websock_set_callbacks(c, &cb);
@@ -155,6 +157,10 @@ static int on_accept_complete(pj_websock_t *c,
     /* say hi*/
     pj_websock_send(c, PJ_WEBSOCK_OP_TEXT, PJ_TRUE, PJ_FALSE,
                     "hi, this is a server", 20);
+
+    /* test: enable auto send ping */
+    pj_time_val interval = { 30, 0 };
+    pj_websock_enable_ping(c, &interval);
 
     return PJ_TRUE;
 }
