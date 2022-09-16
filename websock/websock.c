@@ -1444,7 +1444,8 @@ static void parse_rsp_headers(pj_scanner *pscanner, struct http_rsp_hdr *rsp)
         if (*pscanner->curptr == '\r')
         {
             PJ_LOG(6, (THIS_FILE, "Finish parse headers"));
-            pj_scan_advance_n(pscanner, 2, PJ_FALSE);
+            // pj_scan_advance_n(pscanner, 2, PJ_FALSE);
+            pscanner->curptr += 2;
             break;
         }
 
@@ -1528,7 +1529,8 @@ static void parse_req_headers(pj_scanner *pscanner, struct http_req_hdr *req)
         if (*pscanner->curptr == '\r')
         {
             PJ_LOG(6, (THIS_FILE, "Finish parse headers"));
-            pj_scan_advance_n(pscanner, 2, PJ_FALSE);
+            // pj_scan_advance_n(pscanner, 2, PJ_FALSE);
+            pscanner->curptr += 2;
             break;
         }
 
