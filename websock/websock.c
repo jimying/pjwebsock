@@ -268,10 +268,10 @@ static pj_status_t parse_req_url(const char *url,
     }
     PJ_CATCH_ANY
     {
-        pj_scan_fini(&scanner);
         status = PJ_GET_EXCEPTION();
     }
-    PJ_END;
+    PJ_END
+    pj_scan_fini(&scanner);
 
     return status;
 }
@@ -1444,11 +1444,25 @@ static void parse_rsp_status_line(pj_scanner *pscanner,
 static void parse_rsp_headers(pj_scanner *pscanner, struct http_rsp_hdr *rsp)
 {
     pj_str_t k, v;
+    pj_str_t HDR_END = pj_str("\r\n\r\n");
+    pj_str_t s;
+    char *pos = NULL;
+    pj_strset3(&s, pscanner->curptr, pscanner->end);
+
+    /* check if contains header tail string "\r\n\r\n" */
+    pos = pj_strstr(&s, &HDR_END);
+    if (!pos)
+    {
+        /* message not complete, continue to read */
+        PJ_THROW(PJ_EPENDING);
+    }
 
     while (!pj_scan_is_eof(pscanner))
     {
         if (*pscanner->curptr == '\r')
         {
+            if (pscanner->curptr != pos + 2)
+                PJ_THROW(PJ_EINVAL);
             PJ_LOG(6, (THIS_FILE, "Finish parse headers"));
             // pj_scan_advance_n(pscanner, 2, PJ_FALSE);
             pscanner->curptr += 2;
@@ -1529,11 +1543,25 @@ static void parse_req_line(pj_scanner *pscanner,
 static void parse_req_headers(pj_scanner *pscanner, struct http_req_hdr *req)
 {
     pj_str_t k, v;
+    pj_str_t HDR_END = pj_str("\r\n\r\n");
+    pj_str_t s;
+    char *pos = NULL;
+    pj_strset3(&s, pscanner->curptr, pscanner->end);
+
+    /* check if contains header tail string "\r\n\r\n" */
+    pos = pj_strstr(&s, &HDR_END);
+    if (!pos)
+    {
+        /* message not complete, continue to read */
+        PJ_THROW(PJ_EPENDING);
+    }
 
     while (!pj_scan_is_eof(pscanner))
     {
         if (*pscanner->curptr == '\r')
         {
+            if (pscanner->curptr != pos + 2)
+                PJ_THROW(PJ_EINVAL);
             PJ_LOG(6, (THIS_FILE, "Finish parse headers"));
             // pj_scan_advance_n(pscanner, 2, PJ_FALSE);
             pscanner->curptr += 2;

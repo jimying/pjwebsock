@@ -49,9 +49,9 @@ struct pj_websock_transport_t {
     pj_ioqueue_t *ioq;           /**< Ioqueue that used */
     pj_timer_heap_t *timer_heap; /**< Timer heap that used */
     pj_pool_factory *pf;         /**< Pool factory that used */
+    int max_rx_bufsize;          /**< recv buffer size */
     const void *user_data;       /**< User data */
-    pj_websock_transport_cb cb; /**< User transport callbacks */
-    int max_rx_bufsize;
+    pj_websock_transport_cb cb;  /**< User transport callbacks */
     pj_status_t (*connect)(pj_websock_transport_t *t,
                            const pj_sockaddr_t *remaddr,
                            int addr_len);
