@@ -118,7 +118,7 @@ static pj_status_t parse_http_rsp(char *data,
                                   struct http_rsp_hdr *rsp,
                                   pj_size_t *parse_len);
 
-static void generate_webosck_key(pj_pool_t *pool, pj_str_t *dst);
+static void generate_websock_key(pj_pool_t *pool, pj_str_t *dst);
 static void generate_websock_accept(const pj_str_t *key, char *buf, int *size);
 static pj_bool_t validate_websock_accept(const pj_str_t *accept,
                                          const pj_str_t *key);
@@ -276,7 +276,7 @@ static pj_status_t parse_req_url(const char *url,
     return status;
 }
 
-static void generate_webosck_key(pj_pool_t *pool, pj_str_t *dst)
+static void generate_websock_key(pj_pool_t *pool, pj_str_t *dst)
 {
     pj_uint8_t nonce[16];
     char buf[80];
@@ -383,7 +383,7 @@ pj_status_t pj_websock_connect(pj_websock_endpoint *endpt,
     pj_strdup_with_null(pool, &http_req->req_line.path, &path);
     pj_strdup2_with_null(pool, &http_req->host, buf);
     http_req->websock_ver = PJ_WEBSOCK_VERSION;
-    generate_webosck_key(pool, &http_req->websock_key);
+    generate_websock_key(pool, &http_req->websock_key);
     if (hdr_cnt > 0 && hdrs)
     {
         int i;
