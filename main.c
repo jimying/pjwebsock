@@ -78,6 +78,9 @@ static int work_proc(void *arg)
 
 static pj_bool_t on_connect_complete(pj_websock_t *c, pj_status_t status)
 {
+    char buf[1000];
+    PJ_PERROR(4, (THIS_FILE, status, "%s() %s", __FUNCTION__,
+                  pj_websock_print(c, buf, sizeof(buf))));
     if (status == PJ_SUCCESS)
     {
         pj_websock_send(c, PJ_WEBSOCK_OP_TEXT, PJ_TRUE, PJ_TRUE,

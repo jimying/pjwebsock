@@ -25,6 +25,7 @@ SRCS += websock/websock.c
 SRCS += websock/websock_transport.c
 SRCS += websock/websock_transport_tcp.c
 SRCS += websock/websock_transport_tls.c
+SRCS += websock/http.c
 OBJS = $(addprefix $(BUILD)/, $(addsuffix .o,$(basename $(SRCS))))
 
 all: $(APP)

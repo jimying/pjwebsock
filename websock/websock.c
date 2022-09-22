@@ -1,11 +1,51 @@
 #include "websock.h"
 #include "websock_transport.h"
+#include "http.h"
 #include <pjlib.h>
-#include <pjlib-util/scanner.h>
 #include <pjlib-util/base64.h>
 #include <pjlib-util/sha1.h>
 
 #define THIS_FILE "websock.c"
+
+static pj_str_t PJ_WEBSOCK_STATUS_CODE_101 = {
+    "101",
+    3,
+};
+
+static pj_str_t PJ_WEBSOCK_KEY_NAME_CONNECTION = {
+    "Connection",
+    10,
+};
+static pj_str_t PJ_WEBSOCK_KEY_NAME_UPGRADE = {
+    "Upgrade",
+    7,
+};
+static pj_str_t PJ_WEBSOCK_KEY_NAME_SEC_WEBSOCKET_KEY = {
+    "Sec-WebSocket-Key",
+    17,
+};
+static pj_str_t PJ_WEBSOCK_KEY_NAME_SEC_WEBSOCKET_PROTO = {
+    "Sec-WebSocket-Protocol",
+    22,
+};
+static pj_str_t PJ_WEBSOCK_KEY_NAME_SEC_WEBSOCKET_VERSION = {
+    "Sec-WebSocket-Version",
+    21,
+};
+static pj_str_t PJ_WEBSOCK_KEY_NAME_SEC_WEBSOCKET_ACCEPT = {
+    "Sec-WebSocket-Accept",
+    20,
+};
+
+static pj_str_t PJ_WEBSOCK_KEY_VALUE_WEBSOCKET = {
+    "websocket",
+    9,
+};
+
+static pj_str_t PJ_WEBSOCK_KEY_VALUE_UPGRADE = {
+    "Upgrade",
+    7,
+};
 
 static const pj_time_val NEGOTIATE_TIMEOUT = { 10, 0 };
 enum {
@@ -24,37 +64,6 @@ struct pj_websock_endpoint {
     pj_websock_t *conn_list;
 };
 
-/* Http request header */
-struct http_req_hdr {
-    struct {
-        pj_str_t method;       /**< Must be 'GET' */
-        pj_str_t path;         /**< The request path */
-        pj_str_t http_version; /**< The http version, http/1.1 */
-    } req_line;
-
-    pj_str_t host;        /**< The key 'HOST', value ip:port */
-    pj_str_t connection;  /**< The key 'Connection', Must be 'Upgrade' */
-    pj_str_t upgrade;     /**< The key 'Upgrade', Must be 'websocket */
-    int websock_ver;      /**< The key 'Sec-WebSocket-Version' */
-    pj_str_t websock_key; /**< The key 'Sec-WebSocket-Key' */
-    pj_str_t subproto;    /**< The key 'Sec-WebSocket-Protocol' (optional) */
-
-    pj_websock_http_hdr *hdrs; /**< Other http headers (optional) */
-    int hdr_cnt;               /**< Other http headers count */
-};
-
-struct http_rsp_hdr {
-    struct {
-        pj_str_t http_version; /**< The http version, http/1.1 */
-        int status_code;       /**< The status code */
-        pj_str_t status_text;  /**< The status reason text */
-    } status_line;
-    pj_str_t connection;     /**< The key 'Connection', Must be 'Upgrade' */
-    pj_str_t upgrade;        /**< The key 'Upgrade', Must be 'websocket */
-    pj_str_t websock_accept; /**< The key 'Sec-WebSocket-Accept' */
-    pj_str_t subproto;       /**< The key 'Sec-WebSocket-Protocol' (optional) */
-};
-
 struct pj_websock_t {
     PJ_DECL_LIST_MEMBER(struct pj_websock_t);
     pj_pool_t *pool;
@@ -71,7 +80,7 @@ struct pj_websock_t {
     pj_websock_transport_type tp_type; /**< transport type */
     pj_websock_transport_t *tp;        /**< transport that used */
 
-    struct http_req_hdr *http_req; /**< http request (only outgoing) */
+    pj_str_t req_msg; /**< http request (only outgoing) */
 
     struct {
         pj_str_t paths[PJ_WEBSOCK_MAX_PATH_CNT];
@@ -108,23 +117,16 @@ static pj_bool_t on_data_sent(pj_websock_transport_t *t,
                               pj_ioqueue_op_key_t *send_key,
                               pj_ssize_t sent);
 
-static pj_status_t parse_http_req(char *data,
-                                  pj_size_t size,
-                                  struct http_req_hdr *req,
-                                  pj_size_t *parse_len);
-
-static pj_status_t parse_http_rsp(char *data,
-                                  pj_size_t size,
-                                  struct http_rsp_hdr *rsp,
-                                  pj_size_t *parse_len);
-
-static void generate_websock_key(pj_pool_t *pool, pj_str_t *dst);
+static void generate_websock_key(char *buf, int *size);
 static void generate_websock_accept(const pj_str_t *key, char *buf, int *size);
 static pj_bool_t validate_websock_accept(const pj_str_t *accept,
                                          const pj_str_t *key);
 static pj_bool_t verify_srv_filter(pj_websock_t *srv,
                                    pj_websock_t *c,
-                                   struct http_req_hdr *req);
+                                   const pj_http_msg *req);
+static pj_status_t proc_websock_handshake(pj_websock_t *c,
+                                          const pj_http_msg *msg);
+static void switch_websock_state(pj_websock_t *c, int state);
 
 void pj_websock_endpt_cfg_default(pj_websock_endpt_cfg *opt)
 {
@@ -188,107 +190,6 @@ pj_status_t pj_websock_endpt_destroy(pj_websock_endpoint *endpt)
     return PJ_SUCCESS;
 }
 
-static void on_syntax_error(struct pj_scanner *scanner)
-{
-    PJ_UNUSED_ARG(scanner);
-    PJ_THROW(PJ_EINVAL);
-}
-
-static pj_status_t parse_req_url(const char *url,
-                                 int *tp_type,
-                                 int *af,
-                                 pj_str_t *host,
-                                 pj_uint16_t *port,
-                                 pj_str_t *path)
-{
-    pj_status_t status;
-    int default_port;
-    pj_str_t WS = { "ws", 2 };
-    pj_str_t WSS = { "wss", 3 };
-    pj_scanner scanner;
-    PJ_USE_EXCEPTION;
-
-    pj_scan_init(&scanner, (char *)url, pj_ansi_strlen(url), 0,
-                 on_syntax_error);
-
-    PJ_TRY
-    {
-        pj_str_t s;
-        /* parse protocol*/
-        pj_scan_get_until_ch(&scanner, ':', &s);
-        if (!pj_stricmp(&s, &WS))
-        {
-            *tp_type = PJ_WEBSOCK_TRANSPORT_TCP;
-            default_port = 80;
-        }
-        else if (!pj_stricmp(&s, &WSS))
-        {
-            *tp_type = PJ_WEBSOCK_TRANSPORT_TLS;
-            default_port = 443;
-        }
-        else
-        {
-            PJ_THROW(PJ_EINVAL);
-        }
-
-        /* skip "://" */
-        pj_scan_advance_n(&scanner, 3, PJ_FALSE);
-
-        /* skip user:password@ */
-        pj_strset3(&s, scanner.curptr, scanner.end);
-        if (pj_strchr(&s, '@'))
-        {
-            pj_scan_get_until_ch(&scanner, '@', &s);
-            pj_scan_get_char(&scanner);
-        }
-
-        /* parse ip:port address string*/
-        pj_scan_get_until_chr(&scanner, "/?", &s);
-
-        status = pj_sockaddr_parse2(pj_AF_UNSPEC(), 0, &s, host, port, af);
-        if (status != PJ_SUCCESS)
-            PJ_THROW(status);
-        if (*port == 0)
-            *port = default_port;
-
-        /* parse request path */
-        if (pj_scan_is_eof(&scanner) || *scanner.curptr == '?')
-        {
-            *path = pj_str("/");
-        }
-        else
-        {
-            pj_scan_get_until_chr(&scanner, "?", path);
-            while (path->slen > 1 && path->ptr[path->slen - 1] == '/')
-            {
-                /* strip path, eg. '/path/' to '/path' */
-                path->slen--;
-            }
-        }
-    }
-    PJ_CATCH_ANY
-    {
-        status = PJ_GET_EXCEPTION();
-    }
-    PJ_END
-    pj_scan_fini(&scanner);
-
-    return status;
-}
-
-static void generate_websock_key(pj_pool_t *pool, pj_str_t *dst)
-{
-    pj_uint8_t nonce[16];
-    char buf[80];
-    int len = sizeof(buf);
-    pj_str_t s;
-
-    pj_create_random_string((char *)nonce, 16);
-    pj_base64_encode((pj_uint8_t *)nonce, 16, buf, &len);
-    pj_strset(&s, (char *)buf, len);
-    pj_strdup_with_null(pool, dst, &s);
-}
-
 static void timer_callback(pj_timer_heap_t *heap, pj_timer_entry *e)
 {
     pj_websock_t *c = (pj_websock_t *)e->user_data;
@@ -326,6 +227,65 @@ static void timer_callback(pj_timer_heap_t *heap, pj_timer_entry *e)
     }
 }
 
+static void generate_http_request_msg(const pj_http_uri *http_uri,
+                                      const pj_websock_http_hdr *hdrs,
+                                      int hdr_cnt,
+                                      char *buf,
+                                      int *size)
+{
+    int i;
+    char *p, *end;
+    char websock_key[80];
+    int key_len = sizeof(websock_key);
+
+    p = buf;
+    end = p + *size;
+
+    /* request line */
+    p += pj_ansi_snprintf(p, end - p, "GET %.*s HTTP/1.1\r\n",
+                          (int)http_uri->path.slen, http_uri->path.ptr);
+    /* host */
+    if (http_uri->port.slen == 0)
+    {
+        p += pj_ansi_snprintf(p, end - p, "Host: %.*s\r\n",
+                              (int)http_uri->host.slen, http_uri->host.ptr);
+    }
+    else
+    {
+        p += pj_ansi_snprintf(p, end - p, "Host: %.*s:%.*s\r\n",
+                              (int)http_uri->host.slen, http_uri->host.ptr,
+                              (int)http_uri->port.slen, http_uri->port.ptr);
+    }
+
+    /* connection */
+    p += pj_ansi_snprintf(p, end - p, "Connection: Upgrade\r\n");
+
+    /* upgrade */
+    p += pj_ansi_snprintf(p, end - p, "Upgrade: websocket\r\n");
+
+    /* Sec-WebSocket-Version */
+    p += pj_ansi_snprintf(p, end - p, "Sec-WebSocket-Version: %d\r\n",
+                          PJ_WEBSOCK_VERSION);
+
+    /* Sec-WebSocket-Key */
+    generate_websock_key(websock_key, &key_len);
+    p += pj_ansi_snprintf(p, end - p, "Sec-WebSocket-Key: %.*s\r\n", key_len,
+                          websock_key);
+
+    /* Other headers */
+    for (i = 0; i < hdr_cnt; i++)
+    {
+        p += pj_ansi_snprintf(p, end - p, "%.*s: %.*s\r\n",
+                              (int)hdrs[i].key.slen, hdrs[i].key.ptr,
+                              (int)hdrs[i].val.slen, hdrs[i].val.ptr);
+    }
+    *p++ = '\r';
+    *p++ = '\n';
+    *p = '\0';
+
+    *size = p - buf;
+}
+
 pj_status_t pj_websock_connect(pj_websock_endpoint *endpt,
                                const char *url,
                                const pj_websock_cb *cb,
@@ -338,14 +298,14 @@ pj_status_t pj_websock_connect(pj_websock_endpoint *endpt,
     pj_websock_t *c;
     pj_pool_t *pool;
 
-    int tp_type;
-    int af;
+    int tp_type = PJ_WEBSOCK_TRANSPORT_TCP;
     pj_uint16_t port;
+    char str_host[PJ_MAX_HOSTNAME];
     pj_str_t host;
-    pj_str_t path;
-    struct http_req_hdr *http_req;
-    char buf[PJ_MAX_HOSTNAME];
     pj_websock_transport_param tp_param;
+    pj_http_uri http_uri;
+    char msg_buf[2000];
+    int msg_len = sizeof(msg_buf);
 
     PJ_ASSERT_RETURN(endpt, PJ_EINVAL);
     PJ_ASSERT_RETURN(url && url[0], PJ_EINVAL);
@@ -366,39 +326,32 @@ pj_status_t pj_websock_connect(pj_websock_endpoint *endpt,
         pj_memcpy(&c->cb, cb, sizeof(*cb));
 
     /* parse request url */
-    status = parse_req_url(url, &tp_type, &af, &host, &port, &path);
+    status = pj_http_uri_parse(url, &http_uri);
     if (status != PJ_SUCCESS)
     {
         PJ_PERROR(1, (THIS_FILE, status, "parse url:%s error", url));
         goto on_error;
     }
+    if (pj_http_uri_istls(&http_uri))
+        tp_type = PJ_WEBSOCK_TRANSPORT_TLS;
+    port = pj_http_uri_port(&http_uri);
     c->tp_type = tp_type;
-    pj_sockaddr_init(af, &c->peer, &host, port);
-    pj_sockaddr_print(&c->peer, buf, sizeof(buf), 3);
-
-    /* Fill websock http request info */
-    c->http_req = http_req = PJ_POOL_ZALLOC_T(pool, struct http_req_hdr);
-    pj_strdup2_with_null(pool, &http_req->req_line.method, "GET");
-    pj_strdup2_with_null(pool, &http_req->req_line.http_version, "1.1");
-    pj_strdup_with_null(pool, &http_req->req_line.path, &path);
-    pj_strdup2_with_null(pool, &http_req->host, buf);
-    http_req->websock_ver = PJ_WEBSOCK_VERSION;
-    generate_websock_key(pool, &http_req->websock_key);
-    if (hdr_cnt > 0 && hdrs)
+    pj_ansi_snprintf(str_host, sizeof(str_host), "%.*s:%u",
+                     (int)http_uri.host.slen, http_uri.host.ptr, port);
+    host = pj_str(str_host);
+    status = pj_sockaddr_parse(pj_AF_UNSPEC(), 0, &host, &c->peer);
+    if (status != PJ_SUCCESS)
     {
-        int i;
-        pj_websock_http_hdr *h;
-        http_req->hdrs = pj_pool_alloc(pool, hdr_cnt * sizeof(hdrs[0]));
-        PJ_ASSERT_RETURN(http_req->hdrs, PJ_ENOMEM);
-        for (i = 0; i < hdr_cnt; i++)
-        {
-            h = http_req->hdrs + i;
-            pj_strdup_with_null(pool, &h->key, &hdrs[i].key);
-            pj_strdup_with_null(pool, &h->val, &hdrs[i].val);
-        }
-        http_req->hdr_cnt = hdr_cnt;
+        PJ_PERROR(1, (THIS_FILE, status, "parse sockaddr:%s error", url));
+        goto on_error;
     }
-    pj_strdup_with_null(pool, &c->req_path, &path); /* set target request path*/
+
+    pj_strdup_with_null(pool, &c->req_path,
+                        &http_uri.path); /* set target request path*/
+
+    /* Generate websock http request message */
+    generate_http_request_msg(&http_uri, hdrs, hdr_cnt, msg_buf, &msg_len);
+    pj_strdup2_with_null(pool, &c->req_msg, msg_buf);
 
     /* Create http transport and connect to peer */
     pj_websock_transport_param_default(&tp_param);
@@ -443,6 +396,8 @@ pj_status_t pj_websock_connect(pj_websock_endpoint *endpt,
         goto on_error;
     }
 
+    switch_websock_state(c, PJ_WEBSOCK_STATE_CONNECTING);
+
     *pc = c;
     pj_list_push_front(endpt->conn_list, c);
     return status;
@@ -455,13 +410,10 @@ on_error:
 pj_status_t pj_websock_close(pj_websock_t *c, int code, const char *reason)
 {
     PJ_ASSERT_RETURN(c, PJ_EINVAL);
+    switch_websock_state(c, PJ_WEBSOCK_STATE_CLOSING);
     pj_list_erase(c);
-    if (c->timer.id != TIMER_ID_NONE)
-    {
-        pj_timer_heap_cancel(c->endpt->timer_heap, &c->timer);
-        c->timer.id = TIMER_ID_NONE;
-    }
     pj_websock_transport_destroy(c->tp);
+    switch_websock_state(c, PJ_WEBSOCK_STATE_CLOSED);
     pj_pool_release(c->pool);
     // TODO:
 
@@ -592,15 +544,11 @@ pj_status_t pj_websock_send(pj_websock_t *c,
     status =
         pj_websock_transport_send(c->tp, &tdata->send_key, tx_buf, &tx_len, 0);
     if (status == PJ_SUCCESS)
-    {
-        // pj_pool_release(pool);
         return PJ_SUCCESS;
-    }
 
     if (status != PJ_EPENDING)
     {
         PJ_PERROR(1, (THIS_FILE, status, "send error"));
-        pj_pool_release(pool);
         return status;
     }
 
@@ -908,50 +856,11 @@ static pj_bool_t on_connect_complete(pj_websock_transport_t *t,
     /*create and send http request */
     {
         pj_pool_t *pool =
-            pj_pool_create(c->endpt->pf, "ws_tdata%p", 4000, 500, NULL);
-        int len = 4000;
-        char *buf = (char *)pj_pool_alloc(pool, len);
-        char *p = buf;
-        char *end = p + len;
-        struct http_req_hdr *req = c->http_req;
-        int i;
-        pj_websock_http_hdr *h;
-        pj_ssize_t size;
+            pj_pool_create(c->endpt->pf, "ws_tdata%p", 500, 500, NULL);
         pj_websock_tx_data *tdata = PJ_POOL_ZALLOC_T(pool, pj_websock_tx_data);
+        char *buf = c->req_msg.ptr;
+        pj_ssize_t size = c->req_msg.slen;
 
-        /* request line */
-        p += pj_ansi_snprintf(p, end - p, "%s %s HTTP/%s\r\n",
-                              req->req_line.method.ptr, req->req_line.path.ptr,
-                              req->req_line.http_version.ptr);
-        /* host */
-        p += pj_ansi_snprintf(p, end - p, "Host: %s\r\n", req->host.ptr);
-
-        /* connection */
-        p += pj_ansi_snprintf(p, end - p, "Connection: Upgrade\r\n");
-
-        /* upgrade */
-        p += pj_ansi_snprintf(p, end - p, "Upgrade: websocket\r\n");
-
-        /* Sec-WebSocket-Version */
-        p += pj_ansi_snprintf(p, end - p, "Sec-WebSocket-Version: %d\r\n",
-                              req->websock_ver);
-
-        /* Sec-WebSocket-Key */
-        p += pj_ansi_snprintf(p, end - p, "Sec-WebSocket-Key: %s\r\n",
-                              req->websock_key.ptr);
-
-        /* Other headers */
-        for (i = 0; i < req->hdr_cnt; i++)
-        {
-            h = req->hdrs + i;
-            p += pj_ansi_snprintf(p, end - p, "%s: %s\r\n", h->key.ptr,
-                                  h->val.ptr);
-        }
-        *p++ = '\r';
-        *p++ = '\n';
-        *p = '\0';
-
-        size = p - buf;
         PJ_LOG(5, (THIS_FILE, "TX to %s:\n%s", c->pool->obj_name, buf));
 
         tdata->pool = pool;
@@ -983,7 +892,7 @@ static pj_bool_t on_accept_complete(pj_websock_transport_t *t,
     pool = pj_pool_create(endpt->pf, "websock_s%p", 1000, 1000, NULL);
     newc = PJ_POOL_ZALLOC_T(pool, pj_websock_t);
     pj_timer_entry_init(&newc->timer, TIMER_ID_NONE, newc, timer_callback);
-    newc->state = PJ_WEBSOCK_STATE_CONNECTING;
+    switch_websock_state(newc, PJ_WEBSOCK_STATE_CONNECTING);
     newc->pool = pool;
     newc->endpt = endpt;
     newc->is_incoming = PJ_TRUE;
@@ -1099,6 +1008,8 @@ static pj_bool_t on_data_read(pj_websock_transport_t *t,
     pj_size_t left_size = size;
     char *pdata = (char *)data;
     pj_websock_rx_data *rdata = &c->rdata;
+    pj_http_msg http_msg;
+    pj_size_t http_msg_len;
 
     if (status != PJ_SUCCESS)
     {
@@ -1109,119 +1020,88 @@ static pj_bool_t on_data_read(pj_websock_transport_t *t,
     }
 
 again:
-
-    if (c->state == PJ_WEBSOCK_STATE_CONNECTING && c->timer.id != TIMER_ID_NONE)
+    if (c->state == PJ_WEBSOCK_STATE_CONNECTING)
     {
-        pj_timer_heap_cancel(c->endpt->timer_heap, &c->timer);
-        c->timer.id = TIMER_ID_NONE;
+        /* parse http message */
+        PJ_LOG(5, (THIS_FILE, "%s start parse http msg:\n%.*s",
+                   c->pool->obj_name, (int)left_size, pdata));
+        status = pj_http_msg_parse(pdata, left_size, &http_msg, &http_msg_len);
+        if (status != PJ_SUCCESS)
+            PJ_PERROR(2, (THIS_FILE, status, "parse http msg"));
+        if (status == PJ_EPENDING)
+        {
+            /* has pending data to read */
+            goto on_pending;
+        }
+        if (status != PJ_SUCCESS)
+        {
+            if (c->is_incoming)
+            {
+                http_reply_forbidden(c);
+            }
+            else
+            {
+                if (c->cb.on_connect_complete)
+                    c->cb.on_connect_complete(c, -PJ_WEBSOCK_SC_PROTOCOL_ERROR);
+            }
+            pj_websock_close(c, PJ_WEBSOCK_SC_PROTOCOL_ERROR, 0);
+            return PJ_FALSE;
+        }
     }
 
     if (c->state == PJ_WEBSOCK_STATE_CONNECTING && c->is_incoming == PJ_FALSE)
     {
         /* Outgoing websock connection recv http response */
-
-        /* parse the http response */
-        struct http_rsp_hdr rsp;
-        pj_size_t parse_len = 0;
-        PJ_LOG(5, (THIS_FILE, "%s start parse response:\n%.*s",
-                   c->pool->obj_name, (int)left_size, pdata));
-        status = parse_http_rsp(pdata, left_size, &rsp, &parse_len);
+        status = proc_websock_handshake(c, &http_msg);
         if (status != PJ_SUCCESS)
-            PJ_PERROR(2, (THIS_FILE, status, "parse response"));
-        if (status == PJ_EPENDING)
         {
-            /* has pending data to read */
-            goto on_pending;
-        }
-        else if (status != PJ_SUCCESS)
-        {
-            /* parse error */
+            if (c->cb.on_connect_complete)
+                c->cb.on_connect_complete(c, -PJ_WEBSOCK_SC_PROTOCOL_ERROR);
             pj_websock_close(c, PJ_WEBSOCK_SC_PROTOCOL_ERROR, NULL);
             return PJ_FALSE;
         }
-        else
-        {
-            /* verify Sec-WebSocket-Accept with request Sec-WebSocket-Key */
-            if (!validate_websock_accept(&rsp.websock_accept,
-                                         &c->http_req->websock_key))
-            {
-                /* parse error */
-                PJ_LOG(1, (THIS_FILE, "validate websock-accept fail"));
-                if (c->cb.on_connect_complete)
-                    c->cb.on_connect_complete(c, -PJ_WEBSOCK_SC_PROTOCOL_ERROR);
-                pj_websock_close(c, PJ_WEBSOCK_SC_PROTOCOL_ERROR, NULL);
-                return PJ_FALSE;
-            }
 
-            /* TODO: verify resp subproto match with request*/
-            if (rsp.subproto.slen > 0)
-            {
-                pj_strdup_with_null(c->pool, &c->subproto, &rsp.subproto);
-            }
+        /* change state to connected */
+        switch_websock_state(c, PJ_WEBSOCK_STATE_OPEN);
+        if (c->cb.on_connect_complete)
+            c->cb.on_connect_complete(c, PJ_SUCCESS);
 
-            /* change state to connected */
-            c->state = PJ_WEBSOCK_STATE_OPEN;
-            if (c->cb.on_connect_complete)
-                c->cb.on_connect_complete(c, PJ_SUCCESS);
-
-            /* left size */
-            left_size -= parse_len;
-            pdata += parse_len;
-        }
+        /* left size */
+        left_size -= http_msg_len;
+        pdata += http_msg_len;
     }
     else if (c->state == PJ_WEBSOCK_STATE_CONNECTING &&
              c->is_incoming == PJ_TRUE)
     {
         /* Incoming websock connection recv http request */
+        pj_websock_t *parent = c->parent;
+        pj_str_t websock_key;
 
-        /* Parse the http request */
-        struct http_req_hdr req;
-        pj_size_t parse_len = 0;
-        PJ_LOG(5, (THIS_FILE, "%s start parse request:\n%.*s",
-                   c->pool->obj_name, (int)left_size, pdata));
-        status = parse_http_req(pdata, left_size, &req, &parse_len);
+        status = proc_websock_handshake(c, &http_msg);
         if (status != PJ_SUCCESS)
-            PJ_PERROR(2, (THIS_FILE, status, "parse request"));
-        if (status == PJ_EPENDING)
         {
-            /* has pending data to read */
-            goto on_pending;
-        }
-        else if (status != PJ_SUCCESS)
-        {
-            /* parse error */
             http_reply_forbidden(c);
             pj_websock_close(c, PJ_WEBSOCK_SC_PROTOCOL_ERROR, NULL);
             return PJ_FALSE;
         }
-        else
+
+        /* reply 101 switching */
+        pj_http_msg_find_hdr(&http_msg, &PJ_WEBSOCK_KEY_NAME_SEC_WEBSOCKET_KEY,
+                             &websock_key);
+        http_reply_switching(c, &websock_key);
+
+        /* change state to connected */
+        switch_websock_state(c, PJ_WEBSOCK_STATE_OPEN);
+        if (parent->cb.on_accept_complete)
         {
-            pj_websock_t *parent = c->parent;
-
-            /* verify request path and sub-protols by server filter */
-            if (verify_srv_filter(parent, c, &req) == PJ_FALSE)
-            {
-                http_reply_forbidden(c);
-                pj_websock_close(c, PJ_WEBSOCK_SC_PROTOCOL_ERROR, NULL);
-                return PJ_FALSE;
-            }
-
-            /* reply 101 switching */
-            http_reply_switching(c, &req.websock_key);
-
-            /* change state to connected */
-            c->state = PJ_WEBSOCK_STATE_OPEN;
-            if (parent->cb.on_accept_complete)
-            {
-                /* Should Parent notify this event */
-                parent->cb.on_accept_complete(c, &c->peer,
-                                              pj_sockaddr_get_len(&c->peer));
-            }
+            /* Should Parent notify this event */
+            parent->cb.on_accept_complete(c, &c->peer,
+                                          pj_sockaddr_get_len(&c->peer));
         }
 
         /* left size */
-        left_size -= parse_len;
-        pdata += parse_len;
+        left_size -= http_msg_len;
+        pdata += http_msg_len;
     }
     else if (c->state == PJ_WEBSOCK_STATE_OPEN)
     {
@@ -1402,303 +1282,11 @@ static pj_bool_t on_data_sent(pj_websock_transport_t *t,
     return PJ_TRUE;
 }
 
-static void parse_rsp_status_line(pj_scanner *pscanner,
-                                  pj_str_t *ver,
-                                  int *status_code,
-                                  pj_str_t *status_text)
+static void generate_websock_key(char *buf, int *size)
 {
-    /*
-     * sample:
-     *   HTTP/1.1 101 Switching Protocols\r\n
-     */
-    pj_str_t s;
-    pj_str_t HTTP = { "HTTP", 4 };
-
-    /* http */
-    pj_scan_get_until_ch(pscanner, '/', &s);
-    if (pj_stricmp(&s, &HTTP))
-        PJ_THROW(PJ_EINVAL);
-    if (*pscanner->curptr != '/')
-        PJ_THROW(PJ_EINVAL);
-    pj_scan_get_char(pscanner);
-
-    /* version */
-    pj_scan_get_until_ch(pscanner, ' ', ver);
-    pj_scan_get_char(pscanner);
-
-    /* status code */
-    pj_scan_get_until_ch(pscanner, ' ', &s);
-    pj_scan_get_char(pscanner);
-    *status_code = pj_strtol(&s);
-
-    /* status text */
-    pj_scan_get_until_ch(pscanner, '\r', status_text);
-    if (*pscanner->curptr != '\r')
-        PJ_THROW(PJ_EINVAL);
-    pj_scan_get_char(pscanner);
-    if (*pscanner->curptr != '\n')
-        PJ_THROW(PJ_EINVAL);
-    pj_scan_get_char(pscanner);
-}
-
-static void parse_rsp_headers(pj_scanner *pscanner, struct http_rsp_hdr *rsp)
-{
-    pj_str_t k, v;
-    pj_str_t HDR_END = pj_str("\r\n\r\n");
-    pj_str_t s;
-    char *pos = NULL;
-    pj_strset3(&s, pscanner->curptr, pscanner->end);
-
-    /* check if contains header tail string "\r\n\r\n" */
-    pos = pj_strstr(&s, &HDR_END);
-    if (!pos)
-    {
-        /* message not complete, continue to read */
-        PJ_THROW(PJ_EPENDING);
-    }
-
-    while (!pj_scan_is_eof(pscanner))
-    {
-        if (*pscanner->curptr == '\r')
-        {
-            if (pscanner->curptr != pos + 2)
-                PJ_THROW(PJ_EINVAL);
-            PJ_LOG(6, (THIS_FILE, "Finish parse headers"));
-            // pj_scan_advance_n(pscanner, 2, PJ_FALSE);
-            pscanner->curptr += 2;
-            break;
-        }
-
-        pj_scan_get_until_chr(pscanner, ":\n", &k);
-        pj_scan_advance_n(pscanner, 1, PJ_TRUE);
-        pj_scan_get_until_ch(pscanner, '\r', &v);
-        if (*pscanner->curptr != '\r')
-            PJ_THROW(PJ_EINVAL);
-        pj_scan_get_char(pscanner);
-        if (*pscanner->curptr != '\n')
-            PJ_THROW(PJ_EINVAL);
-        pj_scan_get_char(pscanner);
-
-        if (!pj_stricmp2(&k, "Upgrade"))
-        {
-            if (pj_stricmp2(&v, "websocket"))
-                PJ_THROW(PJ_EINVAL);
-            pj_strassign(&rsp->upgrade, &v);
-        }
-        else if (!pj_stricmp2(&k, "Connection"))
-        {
-            if (pj_stricmp2(&v, "Upgrade"))
-                PJ_THROW(PJ_EINVAL);
-            pj_strassign(&rsp->connection, &v);
-        }
-        else if (!pj_stricmp2(&k, "Sec-WebSocket-Accept"))
-        {
-            pj_strassign(&rsp->websock_accept, &v);
-        }
-        else if (!pj_stricmp2(&k, "Sec-WebSocket-Protocol"))
-        {
-            pj_strassign(&rsp->subproto, &v);
-        }
-    }
-}
-
-static void parse_req_line(pj_scanner *pscanner,
-                           pj_str_t *method,
-                           pj_str_t *path,
-                           pj_str_t *ver)
-{
-    /*
-     * sample:
-     *   GET /chat HTTP/1.1\r\n
-     */
-    pj_str_t s;
-    pj_str_t HTTP = { "HTTP", 4 };
-
-    /* method */
-    pj_scan_get_until_ch(pscanner, ' ', method);
-    pj_scan_get_char(pscanner);
-
-    /* path */
-    pj_scan_get_until_ch(pscanner, ' ', path);
-    pj_scan_get_char(pscanner);
-
-    /* http */
-    pj_scan_get_until_ch(pscanner, '/', &s);
-    if (pj_stricmp(&s, &HTTP))
-        PJ_THROW(PJ_EINVAL);
-    pj_scan_get_char(pscanner);
-
-    /* version */
-    pj_scan_get_until_ch(pscanner, '\r', ver);
-
-    /* skip "\r\n" */
-    if (*pscanner->curptr != '\r')
-        PJ_THROW(PJ_EINVAL);
-    pj_scan_get_char(pscanner);
-    if (*pscanner->curptr != '\n')
-        PJ_THROW(PJ_EINVAL);
-    pj_scan_get_char(pscanner);
-}
-
-static void parse_req_headers(pj_scanner *pscanner, struct http_req_hdr *req)
-{
-    pj_str_t k, v;
-    pj_str_t HDR_END = pj_str("\r\n\r\n");
-    pj_str_t s;
-    char *pos = NULL;
-    pj_strset3(&s, pscanner->curptr, pscanner->end);
-
-    /* check if contains header tail string "\r\n\r\n" */
-    pos = pj_strstr(&s, &HDR_END);
-    if (!pos)
-    {
-        /* message not complete, continue to read */
-        PJ_THROW(PJ_EPENDING);
-    }
-
-    while (!pj_scan_is_eof(pscanner))
-    {
-        if (*pscanner->curptr == '\r')
-        {
-            if (pscanner->curptr != pos + 2)
-                PJ_THROW(PJ_EINVAL);
-            PJ_LOG(6, (THIS_FILE, "Finish parse headers"));
-            // pj_scan_advance_n(pscanner, 2, PJ_FALSE);
-            pscanner->curptr += 2;
-            break;
-        }
-
-        pj_scan_get_until_chr(pscanner, ":\n", &k);
-        pj_scan_advance_n(pscanner, 1, PJ_TRUE);
-        pj_scan_get_until_ch(pscanner, '\r', &v);
-        if (*pscanner->curptr != '\r')
-            PJ_THROW(PJ_EINVAL);
-        pj_scan_get_char(pscanner);
-        if (*pscanner->curptr != '\n')
-            PJ_THROW(PJ_EINVAL);
-        pj_scan_get_char(pscanner);
-
-        if (!pj_stricmp2(&k, "Upgrade"))
-        {
-            if (pj_stricmp2(&v, "websocket"))
-                PJ_THROW(PJ_EINVAL);
-            pj_strassign(&req->upgrade, &v);
-        }
-        else if (!pj_stricmp2(&k, "Connection"))
-        {
-            if (pj_stricmp2(&v, "Upgrade"))
-                PJ_THROW(PJ_EINVAL);
-            pj_strassign(&req->connection, &v);
-        }
-        else if (!pj_stricmp2(&k, "Sec-WebSocket-Key"))
-        {
-            pj_strassign(&req->websock_key, &v);
-        }
-        else if (!pj_stricmp2(&k, "Sec-WebSocket-Version"))
-        {
-            int ver = pj_strtol(&v);
-            if (ver != PJ_WEBSOCK_VERSION)
-                PJ_THROW(PJ_EINVAL);
-        }
-        else if (!pj_stricmp2(&k, "Sec-WebSocket-Protocol"))
-        {
-            pj_strassign(&req->subproto, &v);
-        }
-    }
-}
-
-static pj_status_t parse_http_req(char *data,
-                                  pj_size_t size,
-                                  struct http_req_hdr *req,
-                                  pj_size_t *parse_len)
-{
-    pj_status_t status = PJ_SUCCESS;
-    pj_scanner scanner;
-    PJ_USE_EXCEPTION;
-
-    pj_scan_init(&scanner, data, size, 0, on_syntax_error);
-
-    PJ_TRY
-    {
-        pj_str_t GET = { "GET", 3 };
-        pj_bzero(req, sizeof(*req));
-        /* parse request line */
-        parse_req_line(&scanner, &req->req_line.method, &req->req_line.path,
-                       &req->req_line.http_version);
-        if (pj_stricmp(&req->req_line.method, &GET))
-            PJ_THROW(PJ_EINVAL);
-
-        /* parse headers */
-        parse_req_headers(&scanner, req);
-        if (!req->connection.slen || !req->upgrade.slen ||
-            !req->websock_key.slen)
-        {
-            /* These headers should not be null */
-            PJ_THROW(PJ_EINVAL);
-        }
-    }
-    PJ_CATCH_ANY
-    {
-        status = PJ_GET_EXCEPTION();
-    }
-    PJ_END
-    pj_scan_fini(&scanner);
-    if (status == PJ_SUCCESS)
-    {
-        *parse_len = scanner.curptr - data;
-    }
-
-    return status;
-}
-
-static pj_status_t parse_http_rsp(char *data,
-                                  pj_size_t size,
-                                  struct http_rsp_hdr *rsp,
-                                  pj_size_t *parse_len)
-{
-    pj_status_t status = PJ_SUCCESS;
-    pj_scanner scanner;
-    PJ_USE_EXCEPTION;
-
-    pj_scan_init(&scanner, data, size, 0, on_syntax_error);
-
-    PJ_TRY
-    {
-        pj_bzero(rsp, sizeof(*rsp));
-        /* parse status line */
-        parse_rsp_status_line(&scanner, &rsp->status_line.http_version,
-                              &rsp->status_line.status_code,
-                              &rsp->status_line.status_text);
-        if (rsp->status_line.status_code != 101)
-        {
-            /* status code should be 101 */
-            PJ_LOG(1, (THIS_FILE, "Invalid http resp status code: %d",
-                       rsp->status_line.status_code));
-            PJ_THROW(PJ_EINVAL);
-        }
-
-        /* parse headers */
-        parse_rsp_headers(&scanner, rsp);
-        if (!rsp->connection.slen || !rsp->upgrade.slen ||
-            !rsp->websock_accept.slen)
-        {
-            /* These headers should not be null */
-            PJ_THROW(PJ_EINVAL);
-        }
-    }
-    PJ_CATCH_ANY
-    {
-        status = PJ_GET_EXCEPTION();
-    }
-    PJ_END
-    pj_scan_fini(&scanner);
-
-    if (status == PJ_SUCCESS)
-    {
-        *parse_len = scanner.curptr - data;
-    }
-
-    return status;
+    pj_uint8_t nonce[16];
+    pj_create_random_string((char *)nonce, 16);
+    pj_base64_encode((pj_uint8_t *)nonce, 16, buf, size);
 }
 
 static void generate_websock_accept(const pj_str_t *key, char *buf, int *size)
@@ -1736,11 +1324,12 @@ static pj_bool_t validate_websock_accept(const pj_str_t *accept,
 
 static pj_bool_t verify_srv_filter(pj_websock_t *srv,
                                    pj_websock_t *c,
-                                   struct http_req_hdr *req)
+                                   const pj_http_msg *req)
 {
     int i;
     pj_bool_t found = PJ_FALSE;
-    pj_str_t *req_path = &req->req_line.path;
+    pj_str_t *req_path = req->start_line.u.req_line.path;
+    pj_str_t subproto;
 
     /* check if request path support */
     if (srv->filter.path_cnt > 0)
@@ -1757,7 +1346,7 @@ static pj_bool_t verify_srv_filter(pj_websock_t *srv,
 
         if (found == PJ_FALSE)
         {
-            PJ_LOG(1, (THIS_FILE, "srv_filter, not support path: %.*s",
+            PJ_LOG(1, (THIS_FILE, "%s() not support path: %.*s", __FUNCTION__,
                        (int)req_path->slen, req_path->ptr));
             return PJ_FALSE;
         }
@@ -1768,11 +1357,13 @@ static pj_bool_t verify_srv_filter(pj_websock_t *srv,
     }
 
     /* check if sub-proto support */
+    pj_http_msg_find_hdr(req, &PJ_WEBSOCK_KEY_NAME_SEC_WEBSOCKET_PROTO,
+                         &subproto);
     if (srv->filter.proto_cnt > 0)
     {
-        if (req->subproto.slen == 0)
+        if (subproto.slen == 0)
         {
-            PJ_LOG(1, (THIS_FILE, "srv_filter, request no subproto"));
+            PJ_LOG(1, (THIS_FILE, "%s() request no subproto", __FUNCTION__));
             return PJ_FALSE;
         }
 
@@ -1782,9 +1373,9 @@ static pj_bool_t verify_srv_filter(pj_websock_t *srv,
             pj_str_t *proto = &srv->filter.subprotos[i];
             pj_ssize_t found_idx = 0;
             pj_str_t token = { 0 };
-            while (found_idx != req->subproto.slen)
+            while (found_idx != subproto.slen)
             {
-                found_idx = pj_strtok2(&req->subproto, ",", &token,
+                found_idx = pj_strtok2(&subproto, ",", &token,
                                        (found_idx + token.slen));
 
                 pj_str_t *xproto = pj_strtrim(&token);
@@ -1802,21 +1393,135 @@ static pj_bool_t verify_srv_filter(pj_websock_t *srv,
 
         if (found == PJ_FALSE)
         {
-            PJ_LOG(1, (THIS_FILE, "srv_filter, not support subprotol: %.*s",
-                       (int)req->subproto.slen, req->subproto.ptr));
+            PJ_LOG(1, (THIS_FILE, "%s() not support subprotol: %.*s",
+                       __FUNCTION__, (int)subproto.slen, subproto.ptr));
             return PJ_FALSE;
         }
     }
     else
     {
-        if (req->subproto.slen > 0)
+        if (subproto.slen > 0)
         {
             /* default choose the first sub-protol that request */
             pj_str_t token;
-            pj_strtok2(&req->subproto, ",", &token, 0);
+            pj_strtok2(&subproto, ",", &token, 0);
             pj_strdup_with_null(c->pool, &c->subproto, &token);
         }
     }
 
     return PJ_TRUE;
+}
+
+static pj_status_t proc_websock_handshake(pj_websock_t *c,
+                                          const pj_http_msg *msg)
+{
+    pj_status_t status;
+    pj_str_t s;
+
+    /* check http msg direct is ok */
+    if (c->is_incoming)
+    {
+        if (pj_http_msg_is_response(msg) == PJ_TRUE)
+            return PJ_EINVAL;
+    }
+    else
+    {
+        if (pj_http_msg_is_response(msg) == PJ_FALSE)
+            return PJ_EINVAL;
+        /* check response status code must be 101 */
+        if (pj_strcmp(msg->start_line.u.status_line.status,
+                      &PJ_WEBSOCK_STATUS_CODE_101))
+            return PJ_EINVAL;
+    }
+
+    /* check headers that must be included (both request and response)*/
+    {
+        /* Upgrade: websocket */
+        status = pj_http_msg_find_hdr(msg, &PJ_WEBSOCK_KEY_NAME_UPGRADE, &s);
+        if (status != PJ_SUCCESS)
+            return PJ_EINVAL;
+        if (pj_stricmp(&s, &PJ_WEBSOCK_KEY_VALUE_WEBSOCKET))
+            return PJ_EINVAL;
+
+        /* Connection: Upgrade */
+        status = pj_http_msg_find_hdr(msg, &PJ_WEBSOCK_KEY_NAME_CONNECTION, &s);
+        if (status != PJ_SUCCESS)
+            return PJ_EINVAL;
+        if (pj_stricmp(&s, &PJ_WEBSOCK_KEY_VALUE_UPGRADE))
+            return PJ_EINVAL;
+    }
+
+    if (c->is_incoming)
+    {
+        /* must matched: Sec-WebSocket-Version: 13 */
+        status = pj_http_msg_find_hdr(
+            msg, &PJ_WEBSOCK_KEY_NAME_SEC_WEBSOCKET_VERSION, &s);
+        if (status != PJ_SUCCESS)
+            return PJ_EINVAL;
+        if (pj_strtol(&s) != PJ_WEBSOCK_VERSION)
+            return PJ_EINVAL;
+
+        /* must included: Sec-WebSocket-Key */
+        status = pj_http_msg_find_hdr(
+            msg, &PJ_WEBSOCK_KEY_NAME_SEC_WEBSOCKET_KEY, &s);
+        if (status != PJ_SUCCESS)
+            return PJ_EINVAL;
+
+        /* verify request path and sub-protols by server filter */
+        if (verify_srv_filter(c->parent, c, msg) == PJ_FALSE)
+        {
+            return PJ_EINVAL;
+        }
+    }
+    else
+    {
+        pj_http_msg req_msg;
+        pj_str_t websock_key;
+        pj_str_t websock_accept;
+        pj_str_t rx_subproto;
+
+        /* get request Sec-WebSocket-Key */
+        pj_http_msg_parse(c->req_msg.ptr, c->req_msg.slen, &req_msg, NULL);
+        pj_http_msg_find_hdr(&req_msg, &PJ_WEBSOCK_KEY_NAME_SEC_WEBSOCKET_KEY,
+                             &websock_key);
+
+        /* get response  Sec-WebSocket-Accept */
+        pj_http_msg_find_hdr(msg, &PJ_WEBSOCK_KEY_NAME_SEC_WEBSOCKET_ACCEPT,
+                             &websock_accept);
+
+        /* verify Sec-WebSocket-Accept with request Sec-WebSocket-Key */
+        if (!validate_websock_accept(&websock_accept, &websock_key))
+        {
+            /* parse error */
+            PJ_LOG(1, (THIS_FILE, "validate websock-accept fail"));
+            return PJ_EINVAL;
+        }
+
+        /* TODO: verify resp subproto match with request*/
+        pj_http_msg_find_hdr(msg, &PJ_WEBSOCK_KEY_NAME_SEC_WEBSOCKET_PROTO,
+                             &rx_subproto);
+        if (rx_subproto.slen > 0)
+            pj_strdup_with_null(c->pool, &c->subproto, &rx_subproto);
+    }
+
+    return PJ_SUCCESS;
+}
+
+static void switch_websock_state(pj_websock_t *c, int state)
+{
+    if (c->is_srv)
+        return;
+    c->state = state;
+
+    if (state == PJ_WEBSOCK_STATE_OPEN || state == PJ_WEBSOCK_STATE_CLOSING)
+    {
+        if (c->timer.id != TIMER_ID_NONE)
+        {
+            pj_timer_heap_cancel(c->endpt->timer_heap, &c->timer);
+            c->timer.id = TIMER_ID_NONE;
+        }
+    }
+
+    if (c->cb.on_state_change)
+        c->cb.on_state_change(c, state);
 }
