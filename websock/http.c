@@ -191,7 +191,7 @@ static void http_parse_start_line(pj_scanner *scanner, pj_http_msg *msg)
     /*
      * simple check first char value
      * response-line : Must be HTTP/xx
-     * start-line: GET (other method not supported now)
+     * start-line: GET (other method not supported now) // TODO:
      */
     if ((*scanner->curptr != 'H' && *scanner->curptr != 'h')    /* HTTP */
         && (*scanner->curptr != 'G' && *scanner->curptr != 'g') /* GET */

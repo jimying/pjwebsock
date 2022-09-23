@@ -181,6 +181,14 @@ static pj_bool_t on_tx_msg(pj_websock_t *c,
     return PJ_TRUE;
 }
 
+static void on_state_change(pj_websock_t *c, int state)
+{
+    char buf[1000];
+    PJ_LOG(4, (THIS_FILE, "%s() %s %s", __FUNCTION__,
+               pj_websock_print(c, buf, sizeof(buf)),
+               pj_websock_state_str(state)));
+}
+
 static int on_accept_complete(pj_websock_t *c,
                               const pj_sockaddr_t *src_addr,
                               int src_addr_len)
@@ -194,6 +202,7 @@ static int on_accept_complete(pj_websock_t *c,
     pj_bzero(&cb, sizeof(cb));
     cb.on_rx_msg = on_rx_msg;
     cb.on_tx_msg = on_tx_msg;
+    cb.on_state_change = on_state_change;
     pj_websock_set_callbacks(c, &cb);
     pj_websock_set_userdata(c, NULL); // TODO:
 
@@ -328,6 +337,7 @@ int main(int argc, char **argv)
         cb.on_connect_complete = on_connect_complete;
         cb.on_rx_msg = on_rx_msg;
         cb.on_tx_msg = on_tx_msg;
+        cb.on_state_change = on_state_change;
 
         {
             hdr.key = pj_str("Sec-WebSocket-Protocol");

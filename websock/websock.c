@@ -304,6 +304,7 @@ pj_status_t pj_websock_connect(pj_websock_endpoint *endpt,
     pj_str_t host;
     pj_websock_transport_param tp_param;
     pj_http_uri http_uri;
+    pj_http_msg msg_dummy;
     char msg_buf[2000];
     int msg_len = sizeof(msg_buf);
 
@@ -351,8 +352,17 @@ pj_status_t pj_websock_connect(pj_websock_endpoint *endpt,
 
     /* Generate websock http request message */
     generate_http_request_msg(&http_uri, hdrs, hdr_cnt, msg_buf, &msg_len);
-    pj_strdup2_with_null(pool, &c->req_msg, msg_buf);
 
+    /* validate the request msg that generated */
+    status = pj_http_msg_parse(msg_buf, msg_len, &msg_dummy, NULL);
+    if (status != PJ_SUCCESS)
+    {
+        PJ_PERROR(1, (THIS_FILE, status, "request message"));
+        goto on_error;
+    }
+    pj_http_msg_find_hdr(&msg_dummy, &PJ_WEBSOCK_KEY_NAME_SEC_WEBSOCKET_PROTO,
+                         &c->subproto);
+    pj_strdup2_with_null(pool, &c->req_msg, msg_buf);
     /* Create http transport and connect to peer */
     pj_websock_transport_param_default(&tp_param);
     tp_param.ioq = endpt->ioq;
@@ -415,7 +425,6 @@ pj_status_t pj_websock_close(pj_websock_t *c, int code, const char *reason)
     pj_websock_transport_destroy(c->tp);
     switch_websock_state(c, PJ_WEBSOCK_STATE_CLOSED);
     pj_pool_release(c->pool);
-    // TODO:
 
     return PJ_SUCCESS;
 }
