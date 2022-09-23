@@ -51,8 +51,15 @@ pj_status_t pj_http_uri_parse(const char *str_url, pj_http_uri *uri)
                 PJ_THROW(PJ_EINVAL);
             pj_strset3(&uri->user, s.ptr, p2);
             if (p2 + 1 == p)
-                PJ_THROW(PJ_EINVAL); /* passwd is empty */
-            pj_strset3(&uri->pass, p2 + 1, p);
+            {
+                /* passwd is empty */
+                uri->pass.slen = 0;
+                uri->pass.ptr = 0;
+            }
+            else
+            {
+                pj_strset3(&uri->pass, p2 + 1, p);
+            }
 
             /* update position */
             pj_scan_advance_n(&scanner, p - s.ptr + 1, PJ_FALSE);
@@ -252,11 +259,13 @@ static void http_parse_headers(pj_scanner *scanner, pj_http_msg *msg)
             break;
         }
 
+        /* Get key */
         pj_scan_get_until_chr(scanner, ":\r\n", &k);
         if (*scanner->curptr != ':')
             PJ_THROW(PJ_EINVAL);
         pj_scan_advance_n(scanner, 1, PJ_TRUE);
 
+        /* Get value */
         if (!pj_scan_strcmp(scanner, "\r\n", 2))
         {
             /* value is empty */
@@ -273,6 +282,8 @@ static void http_parse_headers(pj_scanner *scanner, pj_http_msg *msg)
 
         if (cnt < max_cnt)
         {
+            pj_strtrim(&k);
+            pj_strtrim(&v);
             hdrs[cnt].key = k;
             hdrs[cnt].val = v;
             cnt++;
@@ -290,11 +301,11 @@ static void http_parse_body(pj_scanner *scanner, pj_http_msg *msg)
     pj_str_t s;
     pj_size_t len = 0;
 
-    /* get length by key name "Content-Length" */
+    /* Get length by key name "Content-Length" */
     status = pj_http_msg_find_hdr(msg, &C_LEN, &s);
     if (status != PJ_SUCCESS)
     {
-        /* find key name "Transfer-Encoding" */
+        /* Find key "Transfer-Encoding" */
         status = pj_http_msg_find_hdr(msg, &T_ENC, &s);
         if (status == PJ_SUCCESS && !pj_stricmp(&CHUNKED, &s))
         {
