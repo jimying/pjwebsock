@@ -47,10 +47,10 @@ static pj_str_t PJ_WEBSOCK_KEY_VALUE_UPGRADE = {
     7,
 };
 
-static const pj_time_val NEGOTIATE_TIMEOUT = { 10, 0 };
+static const pj_time_val HANDSHAKE_TIMEOUT = { 10, 0 };
 enum {
     TIMER_ID_NONE,
-    TIMER_ID_TIMEOUT,
+    TIMER_ID_HANDSHAKE,
     TIMER_ID_PING,
 };
 
@@ -196,9 +196,9 @@ static void timer_callback(pj_timer_heap_t *heap, pj_timer_entry *e)
     char buf[1000];
     PJ_UNUSED_ARG(heap);
 
-    if (c->timer.id == TIMER_ID_TIMEOUT)
+    if (c->timer.id == TIMER_ID_HANDSHAKE)
     {
-        PJ_LOG(2, (THIS_FILE, "!! %s negotiate timeout",
+        PJ_LOG(2, (THIS_FILE, "#%s: handshake timeout !!",
                    pj_websock_print(c, buf, sizeof(buf))));
         pj_assert(c->state == PJ_WEBSOCK_STATE_CONNECTING);
         c->timer.id = TIMER_ID_NONE;
@@ -320,7 +320,6 @@ pj_status_t pj_websock_connect(pj_websock_endpoint *endpt,
     c = PJ_POOL_ZALLOC_T(pool, pj_websock_t);
     pj_timer_entry_init(&c->timer, TIMER_ID_NONE, c, timer_callback);
     c->pool = pool;
-    c->state = PJ_WEBSOCK_STATE_CONNECTING;
     c->endpt = endpt;
     c->user_data = user_data;
     if (cb)
@@ -363,6 +362,7 @@ pj_status_t pj_websock_connect(pj_websock_endpoint *endpt,
     pj_http_msg_find_hdr(&msg_dummy, &PJ_WEBSOCK_KEY_NAME_SEC_WEBSOCKET_PROTO,
                          &c->subproto);
     pj_strdup2_with_null(pool, &c->req_msg, msg_buf);
+
     /* Create http transport and connect to peer */
     pj_websock_transport_param_default(&tp_param);
     tp_param.ioq = endpt->ioq;
@@ -394,6 +394,7 @@ pj_status_t pj_websock_connect(pj_websock_endpoint *endpt,
     c->tp->cb.on_data_read = on_data_read;
     c->tp->cb.on_data_sent = on_data_sent;
 
+    switch_websock_state(c, PJ_WEBSOCK_STATE_CONNECTING);
     status = pj_websock_transport_start_connect(c->tp, &c->peer,
                                                 pj_sockaddr_get_len(&c->peer));
 
@@ -405,8 +406,6 @@ pj_status_t pj_websock_connect(pj_websock_endpoint *endpt,
         PJ_PERROR(1, (THIS_FILE, status, "transport start connect error"));
         goto on_error;
     }
-
-    switch_websock_state(c, PJ_WEBSOCK_STATE_CONNECTING);
 
     *pc = c;
     pj_list_push_front(endpt->conn_list, c);
@@ -879,9 +878,9 @@ static pj_bool_t on_connect_complete(pj_websock_transport_t *t,
         pj_websock_transport_send(c->tp, &tdata->send_key, buf, &size, 0);
 
         /* start timer to check if recv peer response timeout */
-        c->timer.id = TIMER_ID_TIMEOUT;
+        c->timer.id = TIMER_ID_HANDSHAKE;
         pj_timer_heap_schedule(c->endpt->timer_heap, &c->timer,
-                               &NEGOTIATE_TIMEOUT);
+                               &HANDSHAKE_TIMEOUT);
     }
 
     return PJ_TRUE;
@@ -918,8 +917,8 @@ static pj_bool_t on_accept_complete(pj_websock_transport_t *t,
     pj_list_push_front(endpt->conn_list, newc);
 
     /* start timer to check if recv peer request timeout */
-    newc->timer.id = TIMER_ID_TIMEOUT;
-    pj_timer_heap_schedule(endpt->timer_heap, &newc->timer, &NEGOTIATE_TIMEOUT);
+    newc->timer.id = TIMER_ID_HANDSHAKE;
+    pj_timer_heap_schedule(endpt->timer_heap, &newc->timer, &HANDSHAKE_TIMEOUT);
 
     return PJ_TRUE;
 }
@@ -1106,6 +1105,12 @@ again:
             /* Should Parent notify this event */
             parent->cb.on_accept_complete(c, &c->peer,
                                           pj_sockaddr_get_len(&c->peer));
+            /*
+             * new incoming websock set on_state_change() after accept complete
+             * call switch_websock_state() again to notify user
+             */
+            if (c->cb.on_state_change)
+                switch_websock_state(c, PJ_WEBSOCK_STATE_OPEN);
         }
 
         /* left size */
@@ -1522,8 +1527,19 @@ static void switch_websock_state(pj_websock_t *c, int state)
         return;
     c->state = state;
 
-    if (state == PJ_WEBSOCK_STATE_OPEN || state == PJ_WEBSOCK_STATE_CLOSING)
+    if (state == PJ_WEBSOCK_STATE_OPEN)
     {
+        /* stop handshake timer */
+        if (c->timer.id == TIMER_ID_HANDSHAKE)
+        {
+            pj_timer_heap_cancel(c->endpt->timer_heap, &c->timer);
+            c->timer.id = TIMER_ID_NONE;
+        }
+    }
+    else if (state == PJ_WEBSOCK_STATE_CLOSING ||
+             state == PJ_WEBSOCK_STATE_CLOSED)
+    {
+        /* stop any timer */
         if (c->timer.id != TIMER_ID_NONE)
         {
             pj_timer_heap_cancel(c->endpt->timer_heap, &c->timer);
