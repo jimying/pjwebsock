@@ -11,7 +11,7 @@ static void on_syntax_error(struct pj_scanner *scanner)
 
 pj_status_t pj_http_uri_parse(const char *str_url, pj_http_uri *uri)
 {
-    pj_status_t status;
+    pj_status_t status = PJ_SUCCESS;
     pj_scanner scanner;
     pj_cis_buf_t cs_buf;
     pj_cis_t spec; /* "/?" */
