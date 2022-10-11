@@ -5,6 +5,7 @@ void pj_websock_transport_param_default(pj_websock_transport_param *param)
 {
     pj_bzero(param, sizeof(*param));
     param->max_rx_bufsize = 16000;
+    param->async_cnt = 1;
 }
 
 pj_status_t pj_websock_transport_destroy(pj_websock_transport_t *t)

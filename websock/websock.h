@@ -170,6 +170,7 @@ typedef struct pj_websock_endpt_cfg {
     pj_timer_heap_t *timer_heap;
     pj_websock_ssl_cert *cert;
     int max_rx_bufsize;
+    unsigned async_cnt;
 } pj_websock_endpt_cfg;
 
 /**

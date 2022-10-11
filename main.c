@@ -268,6 +268,7 @@ int main(int argc, char **argv)
         opt.ioq = g_ioq;
         opt.timer_heap = g_timer_heap;
         opt.cert = &cert;
+        opt.async_cnt = 3;
 
         status = pj_websock_endpt_create(&opt, &g_ws_endpt);
         if (status != PJ_SUCCESS)

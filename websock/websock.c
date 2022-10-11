@@ -60,6 +60,7 @@ struct pj_websock_endpoint {
     pj_timer_heap_t *timer_heap;
     pj_websock_ssl_cert *cert;
     int max_rx_bufsize;
+    unsigned async_cnt;
     pj_pool_t *pool;
     pj_websock_t *conn_list;
 };
@@ -132,6 +133,7 @@ void pj_websock_endpt_cfg_default(pj_websock_endpt_cfg *opt)
 {
     pj_bzero(opt, sizeof(*opt));
     opt->max_rx_bufsize = 16000;
+    opt->async_cnt = 1;
 }
 
 pj_status_t pj_websock_endpt_create(pj_websock_endpt_cfg *opt,
@@ -155,6 +157,7 @@ pj_status_t pj_websock_endpt_create(pj_websock_endpt_cfg *opt,
     endpt->timer_heap = opt->timer_heap;
     endpt->pool = pool;
     endpt->max_rx_bufsize = opt->max_rx_bufsize;
+    endpt->async_cnt = opt->async_cnt;
 
     if (opt->cert)
     {
@@ -369,6 +372,7 @@ pj_status_t pj_websock_connect(pj_websock_endpoint *endpt,
     tp_param.pf = endpt->pf;
     tp_param.timer_heap = endpt->timer_heap;
     tp_param.max_rx_bufsize = endpt->max_rx_bufsize;
+    tp_param.async_cnt = endpt->async_cnt;
 
     switch (tp_type)
     {
@@ -589,6 +593,7 @@ pj_status_t pj_websock_listen(pj_websock_endpoint *endpt,
     tp_param.pf = endpt->pf;
     tp_param.timer_heap = endpt->timer_heap;
     tp_param.max_rx_bufsize = endpt->max_rx_bufsize;
+    tp_param.async_cnt = endpt->async_cnt;
 
     pj_sockaddr_print(local_addr, sbuf, sizeof(sbuf), 3);
     PJ_LOG(4, (THIS_FILE, "Listen %s %s", sbuf,

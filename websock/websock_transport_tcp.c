@@ -80,6 +80,7 @@ pj_status_t pj_websock_transport_create_tcp(pj_pool_t *pool,
     tp->base.send = tp_send;
     tp->base.user_data = param->user_data;
     tp->base.max_rx_bufsize = param->max_rx_bufsize;
+    tp->base.async_cnt = param->async_cnt;
     if (param->cb)
         pj_memcpy(&tp->base.cb, param->cb, sizeof(pj_websock_transport_cb));
 
@@ -125,6 +126,7 @@ static pj_status_t tp_connect(pj_websock_transport_t *t,
     pj_util_disable_tcp_timewait(sock);
 
     pj_activesock_cfg_default(&cfg);
+    cfg.async_cnt = t->async_cnt;
     pj_bzero(&cb, sizeof(cb));
     cb.on_connect_complete = on_connect_complete;
     cb.on_data_read = on_data_read;
@@ -207,6 +209,7 @@ static pj_status_t tp_accept(pj_websock_transport_t *t,
     }
 
     pj_activesock_cfg_default(&cfg);
+    cfg.async_cnt = t->async_cnt;
     pj_bzero(&cb, sizeof(cb));
     cb.on_accept_complete = on_accept_complete;
     status = pj_activesock_create(pool, sock, type, &cfg, ioq, &cb, tp, &asock);
@@ -327,6 +330,7 @@ static pj_bool_t on_accept_complete(pj_activesock_t *asock,
 
     pool = new_tp->pool;
     pj_activesock_cfg_default(&cfg);
+    cfg.async_cnt = tp->async_cnt;
     pj_bzero(&cb, sizeof(cb));
     cb.on_data_read = on_data_read;
     cb.on_data_sent = on_data_sent;

@@ -71,6 +71,7 @@ pj_status_t pj_websock_transport_create_tls(pj_pool_t *pool,
     tp->base.send = tp_send;
     tp->base.user_data = param->user_data;
     tp->base.max_rx_bufsize = param->max_rx_bufsize;
+    tp->base.async_cnt = param->async_cnt;
     if (param->cb)
         pj_memcpy(&tp->base.cb, param->cb, sizeof(pj_websock_transport_cb));
 
@@ -122,6 +123,7 @@ static pj_status_t tp_connect(pj_websock_transport_t *t,
     param.timeout.msec = PJ_SSL_HANDSHARKE_TIMEOUT_MSEC % 1000;
     param.user_data = t;
     param.sock_af = af;
+    param.async_cnt = t->async_cnt;
     param.cb.on_connect_complete = on_connect_complete;
     param.cb.on_data_read = on_data_read;
     param.cb.on_data_sent = on_data_sent;
@@ -181,6 +183,7 @@ static pj_status_t tp_accept(pj_websock_transport_t *t,
     param.timeout.msec = PJ_SSL_HANDSHARKE_TIMEOUT_MSEC % 1000;
     param.sock_af = af;
     param.reuse_addr = PJ_TRUE;
+    param.async_cnt = t->async_cnt;
     param.user_data = t;
     param.cb.on_accept_complete = on_accept_complete;
     param.cb.on_data_read = on_data_read;

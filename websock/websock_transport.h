@@ -50,6 +50,7 @@ struct pj_websock_transport_t {
     pj_timer_heap_t *timer_heap; /**< Timer heap that used */
     pj_pool_factory *pf;         /**< Pool factory that used */
     int max_rx_bufsize;          /**< recv buffer size */
+    unsigned async_cnt;          /**< the number of asynchronous read */
     const void *user_data;       /**< User data */
     pj_websock_transport_cb cb;  /**< User transport callbacks */
     pj_status_t (*connect)(pj_websock_transport_t *t,
@@ -77,6 +78,7 @@ typedef struct pj_websock_transport_param {
     pj_websock_transport_cb *cb;
     const void *user_data;
     int max_rx_bufsize;
+    unsigned async_cnt;
 
     struct {
         pj_str_t ca_file;
