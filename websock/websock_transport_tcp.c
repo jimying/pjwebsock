@@ -49,9 +49,10 @@ static void pj_util_disable_tcp_timewait(pj_sock_t sock)
                        sizeof(so_linger));
 }
 
-pj_status_t pj_websock_transport_create_tcp(pj_pool_t *pool,
-                                            pj_websock_transport_param *param,
-                                            pj_websock_transport_t **pt)
+PJ_DEF(pj_status_t)
+pj_websock_transport_create_tcp(pj_pool_t *pool,
+                                pj_websock_transport_param *param,
+                                pj_websock_transport_t **pt)
 {
     struct tcp_transport *tp;
     pj_pool_t *xpool = pool;

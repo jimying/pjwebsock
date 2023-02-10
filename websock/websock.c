@@ -129,15 +129,15 @@ static pj_status_t proc_websock_handshake(pj_websock_t *c,
                                           const pj_http_msg *msg);
 static void switch_websock_state(pj_websock_t *c, int state);
 
-void pj_websock_endpt_cfg_default(pj_websock_endpt_cfg *opt)
+PJ_DEF(void) pj_websock_endpt_cfg_default(pj_websock_endpt_cfg *opt)
 {
     pj_bzero(opt, sizeof(*opt));
     opt->max_rx_bufsize = 16000;
     opt->async_cnt = 1;
 }
 
-pj_status_t pj_websock_endpt_create(pj_websock_endpt_cfg *opt,
-                                    pj_websock_endpoint **pendpt)
+PJ_DEF(pj_status_t) pj_websock_endpt_create(pj_websock_endpt_cfg *opt,
+                                            pj_websock_endpoint **pendpt)
 {
     pj_pool_t *pool;
     pj_websock_endpoint *endpt;
@@ -178,7 +178,7 @@ pj_status_t pj_websock_endpt_create(pj_websock_endpt_cfg *opt,
     return PJ_SUCCESS;
 }
 
-pj_status_t pj_websock_endpt_destroy(pj_websock_endpoint *endpt)
+PJ_DEF(pj_status_t) pj_websock_endpt_destroy(pj_websock_endpoint *endpt)
 {
     if (!endpt)
         return PJ_EINVAL;
@@ -277,13 +277,13 @@ static void generate_http_request_msg(const pj_http_uri *http_uri,
     *size = p - buf;
 }
 
-pj_status_t pj_websock_connect(pj_websock_endpoint *endpt,
-                               const char *url,
-                               const pj_websock_cb *cb,
-                               const void *user_data,
-                               pj_websock_http_hdr *hdrs,
-                               int hdr_cnt,
-                               pj_websock_t **pc)
+PJ_DEF(pj_status_t) pj_websock_connect(pj_websock_endpoint *endpt,
+                                       const char *url,
+                                       const pj_websock_cb *cb,
+                                       const void *user_data,
+                                       pj_websock_http_hdr *hdrs,
+                                       int hdr_cnt,
+                                       pj_websock_t **pc)
 {
     pj_status_t status;
     pj_websock_t *c;
@@ -402,7 +402,9 @@ on_error:
     return status;
 }
 
-pj_status_t pj_websock_close(pj_websock_t *c, int code, const char *reason)
+PJ_DEF(pj_status_t) pj_websock_close(pj_websock_t *c,
+                                     int code,
+                                     const char *reason)
 {
     PJ_ASSERT_RETURN(c, PJ_EINVAL);
     switch_websock_state(c, PJ_WEBSOCK_STATE_CLOSING);
@@ -454,12 +456,12 @@ pj_uint64_t pj_ntohll(pj_uint64_t v)
     return v;
 }
 
-pj_status_t pj_websock_send(pj_websock_t *c,
-                            int opcode,
-                            pj_bool_t fini,
-                            pj_bool_t mask,
-                            void *data,
-                            pj_size_t len)
+PJ_DEF(pj_status_t) pj_websock_send(pj_websock_t *c,
+                                    int opcode,
+                                    pj_bool_t fini,
+                                    pj_bool_t mask,
+                                    void *data,
+                                    pj_size_t len)
 {
     pj_status_t status;
     pj_pool_t *pool;
@@ -540,12 +542,12 @@ pj_status_t pj_websock_send(pj_websock_t *c,
     return PJ_EPENDING;
 }
 
-pj_status_t pj_websock_listen(pj_websock_endpoint *endpt,
-                              int tp_type,
-                              pj_sockaddr_t *local_addr,
-                              pj_websock_cb *cb,
-                              const void *user_data,
-                              pj_websock_t **s)
+PJ_DEF(pj_status_t) pj_websock_listen(pj_websock_endpoint *endpt,
+                                      int tp_type,
+                                      pj_sockaddr_t *local_addr,
+                                      pj_websock_cb *cb,
+                                      const void *user_data,
+                                      pj_websock_t **s)
 {
     pj_status_t status;
     pj_websock_t *ws;
@@ -624,7 +626,8 @@ on_error:
     return status;
 }
 
-pj_status_t pj_websock_set_callbacks(pj_websock_t *c, const pj_websock_cb *cb)
+PJ_DEF(pj_status_t) pj_websock_set_callbacks(pj_websock_t *c,
+                                             const pj_websock_cb *cb)
 {
     PJ_ASSERT_RETURN(c, PJ_EINVAL);
     if (cb) {
@@ -635,26 +638,27 @@ pj_status_t pj_websock_set_callbacks(pj_websock_t *c, const pj_websock_cb *cb)
     return PJ_SUCCESS;
 }
 
-pj_status_t pj_websock_set_userdata(pj_websock_t *c, const void *user_data)
+PJ_DEF(pj_status_t) pj_websock_set_userdata(pj_websock_t *c,
+                                            const void *user_data)
 {
     PJ_ASSERT_RETURN(c, PJ_EINVAL);
     c->user_data = user_data;
     return PJ_SUCCESS;
 }
 
-int pj_websock_get_ready_state(pj_websock_t *c)
+PJ_DEF(int) pj_websock_get_ready_state(pj_websock_t *c)
 {
     PJ_ASSERT_RETURN(c, -1);
     return c->state;
 }
 
-const void *pj_websock_get_userdata(pj_websock_t *c)
+PJ_DEF(const void *) pj_websock_get_userdata(pj_websock_t *c)
 {
     PJ_ASSERT_RETURN(c, NULL);
     return c->user_data;
 }
 
-pj_status_t pj_websock_enable_ping(pj_websock_t *c, pj_time_val *t)
+PJ_DEF(pj_status_t) pj_websock_enable_ping(pj_websock_t *c, pj_time_val *t)
 {
     PJ_ASSERT_RETURN(c, PJ_EINVAL);
     PJ_ASSERT_RETURN(!c->is_srv, PJ_EINVALIDOP); /* should't listening server */
@@ -685,25 +689,25 @@ pj_status_t pj_websock_enable_ping(pj_websock_t *c, pj_time_val *t)
     return PJ_SUCCESS;
 }
 
-pj_bool_t pj_websock_is_incoming(pj_websock_t *c)
+PJ_DEF(pj_bool_t) pj_websock_is_incoming(pj_websock_t *c)
 {
     PJ_ASSERT_RETURN(c, PJ_FALSE);
     return c->is_incoming;
 }
 
-const char *pj_websock_get_request_path(pj_websock_t *c)
+PJ_DEF(const char *) pj_websock_get_request_path(pj_websock_t *c)
 {
     PJ_ASSERT_RETURN(c, NULL);
     return c->req_path.ptr;
 }
 
-const char *pj_websock_get_subproto(pj_websock_t *c)
+PJ_DEF(const char *) pj_websock_get_subproto(pj_websock_t *c)
 {
     PJ_ASSERT_RETURN(c, NULL);
     return c->subproto.ptr;
 }
 
-const char *pj_websock_print(pj_websock_t *c, char *buf, int len)
+PJ_DEF(const char *) pj_websock_print(pj_websock_t *c, char *buf, int len)
 {
     char *p = buf;
     char *end = buf + len;
@@ -719,7 +723,7 @@ const char *pj_websock_print(pj_websock_t *c, char *buf, int len)
     return buf;
 }
 
-const char *pj_websock_opcode_str(int opcode)
+PJ_DEF(const char *) pj_websock_opcode_str(int opcode)
 {
     switch (opcode) {
     case PJ_WEBSOCK_OP_TEXT:
@@ -740,7 +744,7 @@ const char *pj_websock_opcode_str(int opcode)
     return "?";
 }
 
-const char *pj_websock_state_str(int state)
+PJ_DEF(const char *) pj_websock_state_str(int state)
 {
     switch (state) {
     case PJ_WEBSOCK_STATE_CONNECTING:
@@ -757,7 +761,7 @@ const char *pj_websock_state_str(int state)
     return "?";
 }
 
-const char *pj_websock_transport_str(int type)
+PJ_DEF(const char *) pj_websock_transport_str(int type)
 {
     switch (type) {
     case PJ_WEBSOCK_TRANSPORT_TCP:
@@ -770,9 +774,9 @@ const char *pj_websock_transport_str(int type)
     return "?";
 }
 
-pj_status_t pj_websock_set_support_path(pj_websock_t *srv,
-                                        pj_str_t paths[],
-                                        int cnt)
+PJ_DEF(pj_status_t) pj_websock_set_support_path(pj_websock_t *srv,
+                                                pj_str_t paths[],
+                                                int cnt)
 {
     int i = 0;
     PJ_ASSERT_RETURN(srv, PJ_EINVAL);
@@ -786,9 +790,9 @@ pj_status_t pj_websock_set_support_path(pj_websock_t *srv,
 
     return PJ_SUCCESS;
 }
-pj_status_t pj_websock_set_support_subproto(pj_websock_t *srv,
-                                            pj_str_t protos[],
-                                            int cnt)
+PJ_DEF(pj_status_t) pj_websock_set_support_subproto(pj_websock_t *srv,
+                                                    pj_str_t protos[],
+                                                    int cnt)
 {
     int i = 0;
     PJ_ASSERT_RETURN(srv, PJ_EINVAL);

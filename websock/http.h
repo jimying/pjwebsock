@@ -19,9 +19,9 @@ typedef struct pj_http_uri {
     pj_str_t search; /**< search argument, eg. ?x=1&y=2 (optional)*/
 } pj_http_uri;
 
-pj_status_t pj_http_uri_parse(const char *str_url, pj_http_uri *uri);
-pj_bool_t pj_http_uri_istls(const pj_http_uri *uri);
-pj_uint16_t pj_http_uri_port(const pj_http_uri *uri);
+PJ_DECL(pj_status_t) pj_http_uri_parse(const char *str_url, pj_http_uri *uri);
+PJ_DECL(pj_bool_t) pj_http_uri_istls(const pj_http_uri *uri);
+PJ_DECL(pj_uint16_t) pj_http_uri_port(const pj_http_uri *uri);
 
 /**
  *  MAX count of http headers
@@ -77,14 +77,14 @@ typedef struct pj_http_msg {
     pj_str_t body;
 } pj_http_msg;
 
-pj_status_t pj_http_msg_parse(const void *data,
-                              pj_size_t size,
-                              pj_http_msg *msg,
-                              pj_size_t *msg_len);
-pj_status_t pj_http_msg_find_hdr(const pj_http_msg *msg,
-                                 const pj_str_t *k,
-                                 pj_str_t *v);
-pj_bool_t pj_http_msg_is_response(const pj_http_msg *msg);
+PJ_DECL(pj_status_t) pj_http_msg_parse(const void *data,
+                                       pj_size_t size,
+                                       pj_http_msg *msg,
+                                       pj_size_t *msg_len);
+PJ_DECL(pj_status_t) pj_http_msg_find_hdr(const pj_http_msg *msg,
+                                          const pj_str_t *k,
+                                          pj_str_t *v);
+PJ_DECL(pj_bool_t) pj_http_msg_is_response(const pj_http_msg *msg);
 
 PJ_END_DECL
 #endif

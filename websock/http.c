@@ -9,7 +9,7 @@ static void on_syntax_error(struct pj_scanner *scanner)
     PJ_THROW(PJ_EINVAL);
 }
 
-pj_status_t pj_http_uri_parse(const char *str_url, pj_http_uri *uri)
+PJ_DEF(pj_status_t) pj_http_uri_parse(const char *str_url, pj_http_uri *uri)
 {
     pj_status_t status = PJ_SUCCESS;
     pj_scanner scanner;
@@ -131,7 +131,7 @@ pj_status_t pj_http_uri_parse(const char *str_url, pj_http_uri *uri)
     return PJ_SUCCESS;
 }
 
-pj_bool_t pj_http_uri_istls(const pj_http_uri *uri)
+PJ_DEF(pj_bool_t) pj_http_uri_istls(const pj_http_uri *uri)
 {
     if (!pj_stricmp2(&uri->scheme, "wss") ||
         !pj_stricmp2(&uri->scheme, "https")) {
@@ -140,7 +140,7 @@ pj_bool_t pj_http_uri_istls(const pj_http_uri *uri)
     return PJ_FALSE;
 }
 
-pj_uint16_t pj_http_uri_port(const pj_http_uri *uri)
+PJ_DEF(pj_uint16_t) pj_http_uri_port(const pj_http_uri *uri)
 {
     if (uri->port.slen == 0) {
         if (pj_http_uri_istls(uri))
@@ -292,10 +292,10 @@ static void http_parse_body(pj_scanner *scanner, pj_http_msg *msg)
     scanner->curptr += len;
 }
 
-pj_status_t pj_http_msg_parse(const void *data,
-                              pj_size_t size,
-                              pj_http_msg *msg,
-                              pj_size_t *msg_len)
+PJ_DEF(pj_status_t) pj_http_msg_parse(const void *data,
+                                      pj_size_t size,
+                                      pj_http_msg *msg,
+                                      pj_size_t *msg_len)
 {
     pj_status_t status = PJ_SUCCESS;
     pj_scanner scanner;
@@ -333,9 +333,9 @@ pj_status_t pj_http_msg_parse(const void *data,
     return PJ_SUCCESS;
 }
 
-pj_status_t pj_http_msg_find_hdr(const pj_http_msg *msg,
-                                 const pj_str_t *key,
-                                 pj_str_t *val)
+PJ_DEF(pj_status_t) pj_http_msg_find_hdr(const pj_http_msg *msg,
+                                         const pj_str_t *key,
+                                         pj_str_t *val)
 {
     int i;
     PJ_ASSERT_RETURN(msg, PJ_EINVAL);
@@ -354,7 +354,7 @@ pj_status_t pj_http_msg_find_hdr(const pj_http_msg *msg,
     return PJ_ENOTFOUND;
 }
 
-pj_bool_t pj_http_msg_is_response(const pj_http_msg *msg)
+PJ_DEF(pj_bool_t) pj_http_msg_is_response(const pj_http_msg *msg)
 {
     PJ_ASSERT_RETURN(msg, PJ_FALSE);
     const pj_http_start_line *sl = &msg->start_line;

@@ -176,7 +176,7 @@ typedef struct pj_websock_endpt_cfg {
  *
  */
 
-void pj_websock_endpt_cfg_default(pj_websock_endpt_cfg *opt);
+PJ_DECL(void) pj_websock_endpt_cfg_default(pj_websock_endpt_cfg *opt);
 
 /**
  * WebSocket endpoint create
@@ -185,8 +185,8 @@ void pj_websock_endpt_cfg_default(pj_websock_endpt_cfg *opt);
  *
  * @return
  */
-pj_status_t pj_websock_endpt_create(pj_websock_endpt_cfg *opt,
-                                    pj_websock_endpoint **pendpt);
+PJ_DECL(pj_status_t) pj_websock_endpt_create(pj_websock_endpt_cfg *opt,
+                                             pj_websock_endpoint **pendpt);
 
 /**
  *  WebSocket endpoint destroy
@@ -195,7 +195,7 @@ pj_status_t pj_websock_endpt_create(pj_websock_endpt_cfg *opt,
  *
  * @return
  */
-pj_status_t pj_websock_endpt_destroy(pj_websock_endpoint *endpt);
+PJ_DECL(pj_status_t) pj_websock_endpt_destroy(pj_websock_endpoint *endpt);
 
 /**
  * Connect to websocket server
@@ -213,13 +213,13 @@ pj_status_t pj_websock_endpt_destroy(pj_websock_endpoint *endpt);
  *      complete. Any other return value (except PJ_SUCCESS) indicates error
  *      condition.
  */
-pj_status_t pj_websock_connect(pj_websock_endpoint *endpt,
-                               const char *url,
-                               const pj_websock_cb *cb,
-                               const void *user_data,
-                               pj_websock_http_hdr *hdrs,
-                               int hdr_cnt,
-                               pj_websock_t **pc);
+PJ_DECL(pj_status_t) pj_websock_connect(pj_websock_endpoint *endpt,
+                                        const char *url,
+                                        const pj_websock_cb *cb,
+                                        const void *user_data,
+                                        pj_websock_http_hdr *hdrs,
+                                        int hdr_cnt,
+                                        pj_websock_t **pc);
 
 /**
  * Close a websocket connection
@@ -229,7 +229,9 @@ pj_status_t pj_websock_connect(pj_websock_endpoint *endpt,
  *
  * @return return PJ_SUCCESS if successful
  */
-pj_status_t pj_websock_close(pj_websock_t *c, int code, const char *reason);
+PJ_DECL(pj_status_t) pj_websock_close(pj_websock_t *c,
+                                      int code,
+                                      const char *reason);
 
 /**
  *  Send websocket data frame message
@@ -249,12 +251,12 @@ pj_status_t pj_websock_close(pj_websock_t *c, int code, const char *reason);
  *      value indicates error condition.
  *
  */
-pj_status_t pj_websock_send(pj_websock_t *c,
-                            int opcode,
-                            pj_bool_t fini,
-                            pj_bool_t mask,
-                            void *data,
-                            pj_size_t len);
+PJ_DECL(pj_status_t) pj_websock_send(pj_websock_t *c,
+                                     int opcode,
+                                     pj_bool_t fini,
+                                     pj_bool_t mask,
+                                     void *data,
+                                     pj_size_t len);
 
 /**
  * Listen on address to accept new connection (work as server)
@@ -267,12 +269,12 @@ pj_status_t pj_websock_send(pj_websock_t *c,
  *
  * @return PJ_SUCCESS if success
  */
-pj_status_t pj_websock_listen(pj_websock_endpoint *endpt,
-                              int tp_type,
-                              pj_sockaddr_t *local_addr,
-                              pj_websock_cb *cb,
-                              const void *user_data,
-                              pj_websock_t **s);
+PJ_DECL(pj_status_t) pj_websock_listen(pj_websock_endpoint *endpt,
+                                       int tp_type,
+                                       pj_sockaddr_t *local_addr,
+                                       pj_websock_cb *cb,
+                                       const void *user_data,
+                                       pj_websock_t **s);
 
 /**
  * Set websocket server support/allowed request paths
@@ -284,9 +286,9 @@ pj_status_t pj_websock_listen(pj_websock_endpoint *endpt,
  * @return PJ_SUCCESS if success
  *
  */
-pj_status_t pj_websock_set_support_path(pj_websock_t *srv,
-                                        pj_str_t paths[],
-                                        int cnt);
+PJ_DECL(pj_status_t) pj_websock_set_support_path(pj_websock_t *srv,
+                                                 pj_str_t paths[],
+                                                 int cnt);
 /**
  * Set websocket server support/allowed sub-protocols
  *
@@ -297,9 +299,9 @@ pj_status_t pj_websock_set_support_path(pj_websock_t *srv,
  * @return PJ_SUCCESS if success
  *
  */
-pj_status_t pj_websock_set_support_subproto(pj_websock_t *srv,
-                                            pj_str_t protos[],
-                                            int cnt);
+PJ_DECL(pj_status_t) pj_websock_set_support_subproto(pj_websock_t *srv,
+                                                     pj_str_t protos[],
+                                                     int cnt);
 
 /**
  * Set websocket user callbacks
@@ -310,7 +312,8 @@ pj_status_t pj_websock_set_support_subproto(pj_websock_t *srv,
  * @return PJ_SUCCESS if successful
  *
  */
-pj_status_t pj_websock_set_callbacks(pj_websock_t *c, const pj_websock_cb *cb);
+PJ_DECL(pj_status_t) pj_websock_set_callbacks(pj_websock_t *c,
+                                              const pj_websock_cb *cb);
 
 /**
  * Set websocket user data
@@ -321,7 +324,8 @@ pj_status_t pj_websock_set_callbacks(pj_websock_t *c, const pj_websock_cb *cb);
  * @return PJ_SUCCESS if successful
  *
  */
-pj_status_t pj_websock_set_userdata(pj_websock_t *c, const void *user_data);
+PJ_DECL(pj_status_t) pj_websock_set_userdata(pj_websock_t *c,
+                                             const void *user_data);
 
 /**
  * Get websocket user data
@@ -329,7 +333,7 @@ pj_status_t pj_websock_set_userdata(pj_websock_t *c, const void *user_data);
  * @param c    The websocket connection object
  * @return     The websocket user data
  */
-const void *pj_websock_get_userdata(pj_websock_t *c);
+PJ_DECL(const void *) pj_websock_get_userdata(pj_websock_t *c);
 
 /**
  * enable/disable websocket ping timer (auto send ping)
@@ -339,7 +343,7 @@ const void *pj_websock_get_userdata(pj_websock_t *c);
  *
  * @return PJ_SUCCESS if successful
  */
-pj_status_t pj_websock_enable_ping(pj_websock_t *c, pj_time_val *t);
+PJ_DECL(pj_status_t) pj_websock_enable_ping(pj_websock_t *c, pj_time_val *t);
 
 /**
  * Whether websocket connection is incoming
@@ -347,28 +351,28 @@ pj_status_t pj_websock_enable_ping(pj_websock_t *c, pj_time_val *t);
  * @param c    The websocket connection object
  * @return     PJ_TRUE is incoming, else outgoing
  */
-pj_bool_t pj_websock_is_incoming(pj_websock_t *c);
+PJ_DECL(pj_bool_t) pj_websock_is_incoming(pj_websock_t *c);
 
 /** Get websocket ready state
  *
  * @param c    The websocket connection object
  * @return     The websocket user data
  */
-int pj_websock_get_ready_state(pj_websock_t *c);
+PJ_DECL(int) pj_websock_get_ready_state(pj_websock_t *c);
 
 /**
  * Get Websocket request path
  * @param c    The websocket connection object
  * @return     The request path or NULL
  */
-const char *pj_websock_get_request_path(pj_websock_t *c);
+PJ_DECL(const char *) pj_websock_get_request_path(pj_websock_t *c);
 
 /**
  * Get Websocket sub-protocol
  * @param c    The websocket connection object
  * @return     The sub-protol or NULL
  */
-const char *pj_websock_get_subproto(pj_websock_t *c);
+PJ_DECL(const char *) pj_websock_get_subproto(pj_websock_t *c);
 
 /**
  * print Websocket basic info
@@ -378,7 +382,7 @@ const char *pj_websock_get_subproto(pj_websock_t *c);
  * @param len  The buffer length
  * @return     The info string
  */
-const char *pj_websock_print(pj_websock_t *c, char *buf, int len);
+PJ_DECL(const char *) pj_websock_print(pj_websock_t *c, char *buf, int len);
 
 /**
  * Get websocket opcode string
@@ -387,7 +391,7 @@ const char *pj_websock_print(pj_websock_t *c, char *buf, int len);
  * @return   Then string
  *
  */
-const char *pj_websock_opcode_str(int opcode);
+PJ_DECL(const char *) pj_websock_opcode_str(int opcode);
 
 /**
  * Get websocket state string
@@ -395,7 +399,7 @@ const char *pj_websock_opcode_str(int opcode);
  * @param state   The state \a pj_websock_readystate
  * @return   Then string
  */
-const char *pj_websock_state_str(int state);
+PJ_DECL(const char *) pj_websock_state_str(int state);
 
 /**
  * Get websocket transport type string
@@ -403,7 +407,7 @@ const char *pj_websock_state_str(int state);
  * @param type    The transport type \a pj_websock_transport_type
  * @return   Then string
  */
-const char *pj_websock_transport_str(int type);
+PJ_DECL(const char *) pj_websock_transport_str(int type);
 
 PJ_END_DECL
 /**

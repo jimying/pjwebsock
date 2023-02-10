@@ -88,33 +88,38 @@ typedef struct pj_websock_transport_param {
     } cert;
 } pj_websock_transport_param;
 
-void pj_websock_transport_param_default(pj_websock_transport_param *param);
+PJ_DECL(void)
+pj_websock_transport_param_default(pj_websock_transport_param *param);
 
-pj_status_t pj_websock_transport_create_tcp(pj_pool_t *pool,
-                                            pj_websock_transport_param *param,
-                                            pj_websock_transport_t **pt);
+PJ_DECL(pj_status_t)
+pj_websock_transport_create_tcp(pj_pool_t *pool,
+                                pj_websock_transport_param *param,
+                                pj_websock_transport_t **pt);
 
 #if defined(PJ_HAS_SSL_SOCK) && PJ_HAS_SSL_SOCK != 0
-pj_status_t pj_websock_transport_create_tls(pj_pool_t *pool,
-                                            pj_websock_transport_param *param,
-                                            pj_websock_transport_t **pt);
+PJ_DECL(pj_status_t)
+pj_websock_transport_create_tls(pj_pool_t *pool,
+                                pj_websock_transport_param *param,
+                                pj_websock_transport_t **pt);
 #endif
 
-pj_status_t pj_websock_transport_destroy(pj_websock_transport_t *t);
+PJ_DECL(pj_status_t) pj_websock_transport_destroy(pj_websock_transport_t *t);
 
-pj_status_t pj_websock_transport_start_connect(pj_websock_transport_t *t,
-                                               const pj_sockaddr_t *remaddr,
-                                               int addr_len);
+PJ_DECL(pj_status_t)
+pj_websock_transport_start_connect(pj_websock_transport_t *t,
+                                   const pj_sockaddr_t *remaddr,
+                                   int addr_len);
 
-pj_status_t pj_websock_transport_start_accept(pj_websock_transport_t *t,
-                                              const pj_sockaddr_t *local_addr,
-                                              int addr_len);
+PJ_DECL(pj_status_t)
+pj_websock_transport_start_accept(pj_websock_transport_t *t,
+                                  const pj_sockaddr_t *local_addr,
+                                  int addr_len);
 
-pj_status_t pj_websock_transport_send(pj_websock_transport_t *t,
-                                      pj_ioqueue_op_key_t *send_key,
-                                      const void *data,
-                                      pj_ssize_t *size,
-                                      unsigned flags);
+PJ_DECL(pj_status_t) pj_websock_transport_send(pj_websock_transport_t *t,
+                                               pj_ioqueue_op_key_t *send_key,
+                                               const void *data,
+                                               pj_ssize_t *size,
+                                               unsigned flags);
 
 PJ_END_DECL
 /**

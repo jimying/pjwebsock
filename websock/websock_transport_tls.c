@@ -38,9 +38,10 @@ static pj_bool_t on_data_sent(pj_ssl_sock_t *ssock,
                               pj_ioqueue_op_key_t *send_key,
                               pj_ssize_t sent);
 
-pj_status_t pj_websock_transport_create_tls(pj_pool_t *pool,
-                                            pj_websock_transport_param *param,
-                                            pj_websock_transport_t **pt)
+PJ_DEF(pj_status_t)
+pj_websock_transport_create_tls(pj_pool_t *pool,
+                                pj_websock_transport_param *param,
+                                pj_websock_transport_t **pt)
 {
     struct tls_transport *tp;
     pj_pool_t *xpool = pool;
