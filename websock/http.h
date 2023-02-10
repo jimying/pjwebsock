@@ -27,7 +27,7 @@ pj_uint16_t pj_http_uri_port(const pj_http_uri *uri);
  *  MAX count of http headers
  */
 #ifndef PJ_HTTP_MAX_HEADERS
-#define PJ_HTTP_MAX_HEADERS 32
+#  define PJ_HTTP_MAX_HEADERS 32
 #endif
 
 /**
@@ -85,7 +85,6 @@ pj_status_t pj_http_msg_find_hdr(const pj_http_msg *msg,
                                  const pj_str_t *k,
                                  pj_str_t *v);
 pj_bool_t pj_http_msg_is_response(const pj_http_msg *msg);
-
 
 PJ_END_DECL
 #endif

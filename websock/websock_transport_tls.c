@@ -2,7 +2,7 @@
 #include <pjlib.h>
 
 #if defined(PJ_HAS_SSL_SOCK) && PJ_HAS_SSL_SOCK != 0
-#define THIS_FILE "websock_transport_tls.c"
+#  define THIS_FILE "websock_transport_tls.c"
 
 struct tls_transport {
     pj_websock_transport_t base;
@@ -51,8 +51,7 @@ pj_status_t pj_websock_transport_create_tls(pj_pool_t *pool,
     PJ_ASSERT_RETURN(param->ioq, PJ_EINVAL);
     *pt = NULL;
 
-    if (!pool)
-    {
+    if (!pool) {
         PJ_ASSERT_RETURN(param->pf, PJ_EINVAL);
         xpool = pj_pool_create(param->pf, "ws_tptls%p", 500, 500, NULL);
         PJ_ASSERT_RETURN(xpool, PJ_ENOMEM);
@@ -75,13 +74,11 @@ pj_status_t pj_websock_transport_create_tls(pj_pool_t *pool,
     if (param->cb)
         pj_memcpy(&tp->base.cb, param->cb, sizeof(pj_websock_transport_cb));
 
-    if (param->cert.private_file.slen > 0)
-    {
+    if (param->cert.private_file.slen > 0) {
         status = pj_ssl_cert_load_from_files(
             xpool, &param->cert.ca_file, &param->cert.cert_file,
             &param->cert.private_file, &param->cert.private_pass, &tp->cert);
-        if (status != PJ_SUCCESS)
-        {
+        if (status != PJ_SUCCESS) {
             PJ_PERROR(1, (THIS_FILE, status, "load ssl cert error"));
         }
     }
@@ -128,23 +125,20 @@ static pj_status_t tp_connect(pj_websock_transport_t *t,
     param.cb.on_data_read = on_data_read;
     param.cb.on_data_sent = on_data_sent;
     status = pj_ssl_sock_create(pool, &param, &ssock);
-    if (status != PJ_SUCCESS)
-    {
+    if (status != PJ_SUCCESS) {
         PJ_PERROR(1, (THIS_FILE, status, "ssock create error"));
         goto on_error;
     }
 
     pj_sockaddr_init(af, &local_addr, NULL, 0);
-    status =
-        pj_ssl_sock_start_connect(ssock, pool, &local_addr, remaddr, addr_len);
-    if (status == PJ_SUCCESS)
-    {
+    status = pj_ssl_sock_start_connect(ssock, pool, &local_addr, remaddr,
+                                       addr_len);
+    if (status == PJ_SUCCESS) {
         tp->ssock = ssock;
         on_connect_complete(ssock, PJ_SUCCESS);
         return PJ_SUCCESS;
     }
-    if (status != PJ_EPENDING)
-    {
+    if (status != PJ_EPENDING) {
         PJ_PERROR(1, (THIS_FILE, status, "sscock start connect error"));
         goto on_error;
     }
@@ -153,8 +147,7 @@ static pj_status_t tp_connect(pj_websock_transport_t *t,
     return PJ_EPENDING;
 
 on_error:
-    if (ssock)
-    {
+    if (ssock) {
         pj_ssl_sock_close(ssock);
     }
     return status;
@@ -190,8 +183,7 @@ static pj_status_t tp_accept(pj_websock_transport_t *t,
     param.cb.on_data_sent = on_data_sent;
 
     status = pj_ssl_sock_create(pool, &param, &ssock);
-    if (status != PJ_SUCCESS)
-    {
+    if (status != PJ_SUCCESS) {
         PJ_PERROR(1, (THIS_FILE, status, "ssock create error"));
         goto on_error;
     }
@@ -200,8 +192,7 @@ static pj_status_t tp_accept(pj_websock_transport_t *t,
         pj_ssl_sock_set_certificate(ssock, pool, tp->cert);
 
     status = pj_ssl_sock_start_accept(ssock, pool, local_addr, addr_len);
-    if (status != PJ_SUCCESS)
-    {
+    if (status != PJ_SUCCESS) {
         PJ_PERROR(1, (THIS_FILE, status, "ssock accept error"));
         goto on_error;
     }
@@ -210,8 +201,7 @@ static pj_status_t tp_accept(pj_websock_transport_t *t,
 
     return PJ_SUCCESS;
 on_error:
-    if (ssock)
-    {
+    if (ssock) {
         pj_ssl_sock_close(ssock);
     }
     return status;
@@ -222,14 +212,12 @@ static pj_status_t tp_destroy(pj_websock_transport_t *t)
     struct tls_transport *tp = (struct tls_transport *)t;
 
     PJ_ASSERT_RETURN(tp, PJ_EINVAL);
-    if (tp->ssock)
-    {
+    if (tp->ssock) {
         pj_ssl_sock_close(tp->ssock);
         tp->ssock = NULL;
     }
 
-    if (tp->pool_own)
-    {
+    if (tp->pool_own) {
         pj_pool_release(tp->pool_own);
     }
 
@@ -251,16 +239,14 @@ static pj_status_t tp_send(pj_websock_transport_t *t,
     PJ_ASSERT_RETURN(size && *size > 0, PJ_EINVAL);
 
     status = pj_ssl_sock_send(tp->ssock, send_key, data, size, flags);
-    if (status == PJ_SUCCESS)
-    {
+    if (status == PJ_SUCCESS) {
         pj_websock_transport_cb *cb = &tp->base.cb;
         if (cb->on_data_sent)
             cb->on_data_sent(&tp->base, send_key, *size);
         return PJ_SUCCESS;
     }
 
-    if (status != PJ_EPENDING)
-    {
+    if (status != PJ_EPENDING) {
         PJ_PERROR(1, (THIS_FILE, status, "send error"));
         pj_websock_transport_cb *cb = &tp->base.cb;
         if (cb->on_data_sent)
@@ -292,8 +278,7 @@ static pj_bool_t on_accept_complete(pj_ssl_sock_t *ssock,
     tp_param.max_rx_bufsize = tp->max_rx_bufsize;
 
     status = pj_websock_transport_create_tls(NULL, &tp_param, &new_tp);
-    if (status != PJ_SUCCESS)
-    {
+    if (status != PJ_SUCCESS) {
         PJ_PERROR(
             1, (THIS_FILE, status, "%s() new transport error", __FUNCTION__));
         goto on_error;
@@ -308,8 +293,7 @@ static pj_bool_t on_accept_complete(pj_ssl_sock_t *ssock,
     if (tp->cb.on_accept_complete)
         tp->cb.on_accept_complete(tp, new_tp, src_addr, src_addr_len);
     status = pj_ssl_sock_start_read(newsock, pool, tp->max_rx_bufsize, 0);
-    if (status != PJ_SUCCESS)
-    {
+    if (status != PJ_SUCCESS) {
         PJ_PERROR(1, (THIS_FILE, status, "start read error"));
     }
 
@@ -329,12 +313,10 @@ static pj_bool_t on_connect_complete(pj_ssl_sock_t *ssock, pj_status_t status)
     PJ_PERROR(6, (THIS_FILE, status, "%s() %s status:%d", __FUNCTION__,
                   tp->base.pool->obj_name, status));
 
-    if (status == PJ_SUCCESS)
-    {
+    if (status == PJ_SUCCESS) {
         status = pj_ssl_sock_start_read(tp->ssock, tp->base.pool,
                                         tp->base.max_rx_bufsize, 0);
-        if (status != PJ_SUCCESS)
-        {
+        if (status != PJ_SUCCESS) {
             PJ_PERROR(1, (THIS_FILE, status, "start read error"));
         }
     }
@@ -357,8 +339,7 @@ static pj_bool_t on_data_read(pj_ssl_sock_t *ssock,
     PJ_PERROR(6, (THIS_FILE, status, "%s() %s status:%d, size:%d", __FUNCTION__,
                   tp->base.pool->obj_name, status, size));
 
-    if (status != PJ_SUCCESS)
-    {
+    if (status != PJ_SUCCESS) {
         /* immediately close sock when connection disconnected */
         PJ_PERROR(2, (THIS_FILE, status, "%s() %s status:%d, size:%d",
                       __FUNCTION__, tp->base.pool->obj_name, status, size));

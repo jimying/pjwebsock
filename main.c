@@ -6,11 +6,11 @@
 
 #define THIS_FILE "main.c"
 
-#define WS_PORT 7788
-#define WSS_PORT 7789
+#define WS_PORT   7788
+#define WSS_PORT  7789
 
 #define CERT_FILE "./cert/test.pem"
-#define CERT_KEY "./cert/test.key"
+#define CERT_KEY  "./cert/test.key"
 
 static pj_bool_t g_quit = PJ_FALSE;
 static pj_caching_pool g_app_cp;
@@ -33,23 +33,19 @@ static void print_usage(void)
 
 static void app_destroy()
 {
-    if (g_evt_thread)
-    {
+    if (g_evt_thread) {
         pj_thread_join(g_evt_thread);
         pj_thread_destroy(g_evt_thread);
     }
-    if (g_ws_endpt)
-    {
+    if (g_ws_endpt) {
         pj_websock_endpt_destroy(g_ws_endpt);
     }
 
-    if (g_ioq)
-    {
+    if (g_ioq) {
         pj_ioqueue_destroy(g_ioq);
     }
 
-    if (g_timer_heap)
-    {
+    if (g_timer_heap) {
         pj_timer_heap_destroy(g_timer_heap);
     }
 
@@ -60,15 +56,13 @@ static void app_destroy()
 
 static int work_proc(void *arg)
 {
-    while (!g_quit)
-    {
-        pj_time_val timeout = { 0, 20 };
-        pj_time_val timeout2 = { 0, 0 };
+    while (!g_quit) {
+        pj_time_val timeout = {0, 20};
+        pj_time_val timeout2 = {0, 0};
 
         pj_timer_heap_poll(g_timer_heap, &timeout2);
 
-        if (PJ_TIME_VAL_GT(timeout, timeout2))
-        {
+        if (PJ_TIME_VAL_GT(timeout, timeout2)) {
             timeout = timeout2;
         }
         pj_ioqueue_poll(g_ioq, &timeout);
@@ -81,8 +75,7 @@ static pj_bool_t on_connect_complete(pj_websock_t *c, pj_status_t status)
     char buf[1000];
     PJ_PERROR(4, (THIS_FILE, status, "%s() %s", __FUNCTION__,
                   pj_websock_print(c, buf, sizeof(buf))));
-    if (status == PJ_SUCCESS)
-    {
+    if (status == PJ_SUCCESS) {
         pj_websock_send(c, PJ_WEBSOCK_OP_TEXT, PJ_TRUE, PJ_TRUE,
                         "hi, this is a client", 20);
     }
@@ -97,8 +90,7 @@ static pj_bool_t on_rx_msg(pj_websock_t *c,
     char *data;
     char buf[1000];
 
-    if (status != PJ_SUCCESS)
-    {
+    if (status != PJ_SUCCESS) {
         PJ_PERROR(2, (THIS_FILE, status, "#Disconnect with %s",
                       pj_websock_print(c, buf, sizeof(buf))));
         return PJ_FALSE;
@@ -107,8 +99,7 @@ static pj_bool_t on_rx_msg(pj_websock_t *c,
     hdr = &msg->hdr;
     data = (char *)msg->data;
 
-    if (hdr->opcode == PJ_WEBSOCK_OP_TEXT)
-    {
+    if (hdr->opcode == PJ_WEBSOCK_OP_TEXT) {
         PJ_LOG(4, (THIS_FILE,
                    "RX from %s:\n"
                    "TEXT %s %ld/%ld/%ld [%.*s]",
@@ -118,21 +109,15 @@ static pj_bool_t on_rx_msg(pj_websock_t *c,
 
         /* echo response */
         // pj_websock_send(c, hdr->opcode, PJ_TRUE, PJ_FALSE, data, hdr->len);
-    }
-    else if (hdr->opcode == PJ_WEBSOCK_OP_PING)
-    {
+    } else if (hdr->opcode == PJ_WEBSOCK_OP_PING) {
         PJ_LOG(4, (THIS_FILE, "RX from %s PING",
                    pj_websock_print(c, buf, sizeof(buf))));
         /* response pong */
         pj_websock_send(c, PJ_WEBSOCK_OP_PONG, PJ_TRUE, PJ_TRUE, NULL, 0);
-    }
-    else if (hdr->opcode == PJ_WEBSOCK_OP_PONG)
-    {
+    } else if (hdr->opcode == PJ_WEBSOCK_OP_PONG) {
         PJ_LOG(4, (THIS_FILE, "RX from %s PONG",
                    pj_websock_print(c, buf, sizeof(buf))));
-    }
-    else if (hdr->opcode == PJ_WEBSOCK_OP_CLOSE)
-    {
+    } else if (hdr->opcode == PJ_WEBSOCK_OP_CLOSE) {
         PJ_LOG(4, (THIS_FILE, "RX from %s CLOSE",
                    pj_websock_print(c, buf, sizeof(buf))));
         pj_websock_close(c, PJ_WEBSOCK_SC_GOING_AWAY, NULL);
@@ -153,27 +138,20 @@ static pj_bool_t on_tx_msg(pj_websock_t *c,
     hdr = &msg->hdr;
     data = (char *)msg->data;
 
-    if (hdr->opcode == PJ_WEBSOCK_OP_TEXT)
-    {
+    if (hdr->opcode == PJ_WEBSOCK_OP_TEXT) {
         PJ_LOG(4, (THIS_FILE,
                    "TX to %s:\n"
                    "TEXT %s %ld/%ld [%.*s]",
                    pj_websock_print(c, buf, sizeof(buf)),
                    hdr->mask ? "(masked)" : "", hdr->len, sent, (int)hdr->len,
                    data));
-    }
-    else if (hdr->opcode == PJ_WEBSOCK_OP_PING)
-    {
+    } else if (hdr->opcode == PJ_WEBSOCK_OP_PING) {
         PJ_LOG(4, (THIS_FILE, "TX to %s PING",
                    pj_websock_print(c, buf, sizeof(buf))));
-    }
-    else if (hdr->opcode == PJ_WEBSOCK_OP_PONG)
-    {
+    } else if (hdr->opcode == PJ_WEBSOCK_OP_PONG) {
         PJ_LOG(4, (THIS_FILE, "TX to %s PONG",
                    pj_websock_print(c, buf, sizeof(buf))));
-    }
-    else if (hdr->opcode == PJ_WEBSOCK_OP_CLOSE)
-    {
+    } else if (hdr->opcode == PJ_WEBSOCK_OP_CLOSE) {
         PJ_LOG(4, (THIS_FILE, "TX to %s CLOSE",
                    pj_websock_print(c, buf, sizeof(buf))));
     }
@@ -204,14 +182,14 @@ static int on_accept_complete(pj_websock_t *c,
     cb.on_tx_msg = on_tx_msg;
     cb.on_state_change = on_state_change;
     pj_websock_set_callbacks(c, &cb);
-    pj_websock_set_userdata(c, NULL); // TODO:
+    pj_websock_set_userdata(c, NULL);  // TODO:
 
     /* say hi*/
     pj_websock_send(c, PJ_WEBSOCK_OP_TEXT, PJ_TRUE, PJ_FALSE,
                     "hi, this is a server", 20);
 
     /* test: enable auto send ping */
-    pj_time_val interval = { 30, 0 };
+    pj_time_val interval = {30, 0};
     pj_websock_enable_ping(c, &interval);
 
     return PJ_TRUE;
@@ -243,15 +221,13 @@ int main(int argc, char **argv)
     /* create websock endpoint */
     {
         status = pj_ioqueue_create(g_app_pool, PJ_IOQUEUE_MAX_HANDLES, &g_ioq);
-        if (status != PJ_SUCCESS)
-        {
+        if (status != PJ_SUCCESS) {
             PJ_PERROR(1, (THIS_FILE, status, "create ioqueue error"));
             goto on_error;
         }
 
         status = pj_timer_heap_create(g_app_pool, 128, &g_timer_heap);
-        if (status != PJ_SUCCESS)
-        {
+        if (status != PJ_SUCCESS) {
             PJ_PERROR(1, (THIS_FILE, status, "create timer heap error"));
             goto on_error;
         }
@@ -271,8 +247,7 @@ int main(int argc, char **argv)
         opt.async_cnt = 3;
 
         status = pj_websock_endpt_create(&opt, &g_ws_endpt);
-        if (status != PJ_SUCCESS)
-        {
+        if (status != PJ_SUCCESS) {
             PJ_PERROR(1, (THIS_FILE, status, "create websock endpoint error"));
             goto on_error;
         }
@@ -313,15 +288,13 @@ int main(int argc, char **argv)
             pj_str("/tls"),
         };
 
-        if (ws)
-        {
+        if (ws) {
             pj_websock_set_support_subproto(ws, support_protols,
                                             PJ_ARRAY_SIZE(support_protols));
             pj_websock_set_support_path(ws, support_paths,
                                         PJ_ARRAY_SIZE(support_paths));
         }
-        if (wss)
-        {
+        if (wss) {
             pj_websock_set_support_subproto(wss, support_protols,
                                             PJ_ARRAY_SIZE(support_protols));
             pj_websock_set_support_path(wss, support_paths,
@@ -350,11 +323,9 @@ int main(int argc, char **argv)
         }
     }
 
-    while (!g_quit)
-    {
+    while (!g_quit) {
         fgets(cmd, sizeof(cmd), stdin);
-        switch (cmd[0])
-        {
+        switch (cmd[0]) {
         case 'q':
             g_quit = PJ_TRUE;
             break;

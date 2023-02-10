@@ -61,8 +61,7 @@ pj_status_t pj_websock_transport_create_tcp(pj_pool_t *pool,
     PJ_ASSERT_RETURN(param->ioq, PJ_EINVAL);
     *pt = NULL;
 
-    if (!pool)
-    {
+    if (!pool) {
         PJ_ASSERT_RETURN(param->pf, PJ_EINVAL);
         xpool = pj_pool_create(param->pf, "ws_tptcp%p", 500, 500, NULL);
         PJ_ASSERT_RETURN(xpool, PJ_ENOMEM);
@@ -117,8 +116,7 @@ static pj_status_t tp_connect(pj_websock_transport_t *t,
     pool = tp->base.pool;
     af = rmt_addr->addr.sa_family;
     status = pj_sock_socket(af, type, 0, &sock);
-    if (status != PJ_SUCCESS)
-    {
+    if (status != PJ_SUCCESS) {
         PJ_PERROR(1, (THIS_FILE, status, "sock error"));
         return status;
     }
@@ -132,21 +130,18 @@ static pj_status_t tp_connect(pj_websock_transport_t *t,
     cb.on_data_read = on_data_read;
     cb.on_data_sent = on_data_sent;
     status = pj_activesock_create(pool, sock, type, &cfg, ioq, &cb, tp, &asock);
-    if (status != PJ_SUCCESS)
-    {
+    if (status != PJ_SUCCESS) {
         PJ_PERROR(1, (THIS_FILE, status, "asock create error"));
         goto on_error;
     }
 
     status = pj_activesock_start_connect(asock, pool, remaddr, addr_len);
-    if (status == PJ_SUCCESS)
-    {
+    if (status == PJ_SUCCESS) {
         tp->asock = asock;
         on_connect_complete(asock, PJ_SUCCESS);
         return PJ_SUCCESS;
     }
-    if (status != PJ_EPENDING)
-    {
+    if (status != PJ_EPENDING) {
         PJ_PERROR(1, (THIS_FILE, status, "ascock start connect error"));
         goto on_error;
     }
@@ -155,12 +150,9 @@ static pj_status_t tp_connect(pj_websock_transport_t *t,
     return PJ_EPENDING;
 
 on_error:
-    if (asock)
-    {
+    if (asock) {
         pj_activesock_close(asock);
-    }
-    else if (sock > 0)
-    {
+    } else if (sock > 0) {
         pj_sock_close(sock);
     }
     return status;
@@ -186,8 +178,7 @@ static pj_status_t tp_accept(pj_websock_transport_t *t,
     PJ_ASSERT_RETURN(local_addr, PJ_EINVAL);
 
     status = pj_sock_socket(af, type, 0, &sock);
-    if (status != PJ_SUCCESS)
-    {
+    if (status != PJ_SUCCESS) {
         PJ_PERROR(1, (THIS_FILE, status, "sock error"));
         return status;
     }
@@ -195,15 +186,13 @@ static pj_status_t tp_accept(pj_websock_transport_t *t,
     pj_util_disable_tcp_timewait(sock);
 
     status = pj_sock_bind(sock, local_addr, addr_len);
-    if (status != PJ_SUCCESS)
-    {
+    if (status != PJ_SUCCESS) {
         PJ_PERROR(1, (THIS_FILE, status, "sock bind"));
         return status;
     }
 
     status = pj_sock_listen(sock, PJ_SOMAXCONN);
-    if (status != PJ_SUCCESS)
-    {
+    if (status != PJ_SUCCESS) {
         PJ_PERROR(1, (THIS_FILE, status, "sock listen"));
         return status;
     }
@@ -213,15 +202,13 @@ static pj_status_t tp_accept(pj_websock_transport_t *t,
     pj_bzero(&cb, sizeof(cb));
     cb.on_accept_complete = on_accept_complete;
     status = pj_activesock_create(pool, sock, type, &cfg, ioq, &cb, tp, &asock);
-    if (status != PJ_SUCCESS)
-    {
+    if (status != PJ_SUCCESS) {
         PJ_PERROR(1, (THIS_FILE, status, "asock create error"));
         goto on_error;
     }
 
     status = pj_activesock_start_accept(asock, pool);
-    if (status != PJ_SUCCESS)
-    {
+    if (status != PJ_SUCCESS) {
         PJ_PERROR(1, (THIS_FILE, status, "asock accept error"));
         goto on_error;
     }
@@ -230,12 +217,9 @@ static pj_status_t tp_accept(pj_websock_transport_t *t,
 
     return PJ_SUCCESS;
 on_error:
-    if (asock)
-    {
+    if (asock) {
         pj_activesock_close(asock);
-    }
-    else if (sock > 0)
-    {
+    } else if (sock > 0) {
         pj_sock_close(sock);
     }
     return status;
@@ -246,14 +230,12 @@ static pj_status_t tp_destroy(pj_websock_transport_t *t)
     struct tcp_transport *tp = (struct tcp_transport *)t;
 
     PJ_ASSERT_RETURN(tp, PJ_EINVAL);
-    if (tp->asock)
-    {
+    if (tp->asock) {
         pj_activesock_close(tp->asock);
         tp->asock = NULL;
     }
 
-    if (tp->pool_own)
-    {
+    if (tp->pool_own) {
         pj_pool_release(tp->pool_own);
     }
 
@@ -275,16 +257,14 @@ static pj_status_t tp_send(pj_websock_transport_t *t,
     PJ_ASSERT_RETURN(size && *size > 0, PJ_EINVAL);
 
     status = pj_activesock_send(tp->asock, send_key, data, size, flags);
-    if (status == PJ_SUCCESS)
-    {
+    if (status == PJ_SUCCESS) {
         pj_websock_transport_cb *cb = &tp->base.cb;
         if (cb->on_data_sent)
             cb->on_data_sent(&tp->base, send_key, *size);
         return PJ_SUCCESS;
     }
 
-    if (status != PJ_EPENDING)
-    {
+    if (status != PJ_EPENDING) {
         PJ_PERROR(1, (THIS_FILE, status, "send error"));
         pj_websock_transport_cb *cb = &tp->base.cb;
         if (cb->on_data_sent)
@@ -318,8 +298,7 @@ static pj_bool_t on_accept_complete(pj_activesock_t *asock,
     tp_param.max_rx_bufsize = tp->max_rx_bufsize;
 
     status = pj_websock_transport_create_tcp(NULL, &tp_param, &new_tp);
-    if (status != PJ_SUCCESS)
-    {
+    if (status != PJ_SUCCESS) {
         PJ_PERROR(
             1, (THIS_FILE, status, "%s() new transport error", __FUNCTION__));
         goto on_error;
@@ -336,8 +315,7 @@ static pj_bool_t on_accept_complete(pj_activesock_t *asock,
     cb.on_data_sent = on_data_sent;
     status = pj_activesock_create(pool, newsock, pj_SOCK_STREAM(), &cfg, ioq,
                                   &cb, new_tp, &new_asock);
-    if (status != PJ_SUCCESS)
-    {
+    if (status != PJ_SUCCESS) {
         PJ_PERROR(1,
                   (THIS_FILE, status, "%s() create asock error", __FUNCTION__));
         goto on_error;
@@ -349,8 +327,7 @@ static pj_bool_t on_accept_complete(pj_activesock_t *asock,
     if (tp->cb.on_accept_complete)
         tp->cb.on_accept_complete(tp, new_tp, src_addr, src_addr_len);
     status = pj_activesock_start_read(new_asock, pool, tp->max_rx_bufsize, 0);
-    if (status != PJ_SUCCESS)
-    {
+    if (status != PJ_SUCCESS) {
         PJ_PERROR(1, (THIS_FILE, status, "start read error"));
     }
 
@@ -372,12 +349,10 @@ static pj_bool_t on_connect_complete(pj_activesock_t *asock, pj_status_t status)
     PJ_PERROR(6, (THIS_FILE, status, "%s() %s status:%d", __FUNCTION__,
                   tp->base.pool->obj_name, status));
 
-    if (status == PJ_SUCCESS)
-    {
+    if (status == PJ_SUCCESS) {
         status = pj_activesock_start_read(tp->asock, tp->base.pool,
                                           tp->base.max_rx_bufsize, 0);
-        if (status != PJ_SUCCESS)
-        {
+        if (status != PJ_SUCCESS) {
             PJ_PERROR(1, (THIS_FILE, status, "start read error"));
         }
     }
@@ -400,8 +375,7 @@ static pj_bool_t on_data_read(pj_activesock_t *asock,
     PJ_PERROR(6, (THIS_FILE, status, "%s() %s status:%d, size:%d", __FUNCTION__,
                   tp->base.pool->obj_name, status, size));
 
-    if (status != PJ_SUCCESS)
-    {
+    if (status != PJ_SUCCESS) {
         /* immediately close sock when connection disconnected */
         PJ_PERROR(2, (THIS_FILE, status, "%s() %s status:%d, size:%d",
                       __FUNCTION__, tp->base.pool->obj_name, status, size));

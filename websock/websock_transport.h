@@ -15,7 +15,7 @@ PJ_BEGIN_DECL
  * SSL handsharke timeout milliseconds
  */
 #ifndef PJ_SSL_HANDSHARKE_TIMEOUT_MSEC
-#define PJ_SSL_HANDSHARKE_TIMEOUT_MSEC (10 * 1000)
+#  define PJ_SSL_HANDSHARKE_TIMEOUT_MSEC (10 * 1000)
 #endif
 
 typedef struct pj_websock_transport_t pj_websock_transport_t;
@@ -115,7 +115,6 @@ pj_status_t pj_websock_transport_send(pj_websock_transport_t *t,
                                       const void *data,
                                       pj_ssize_t *size,
                                       unsigned flags);
-
 
 PJ_END_DECL
 /**

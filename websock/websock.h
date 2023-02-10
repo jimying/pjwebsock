@@ -15,14 +15,14 @@ PJ_BEGIN_DECL
  *  Max number of allowed request paths
  */
 #ifndef PJ_WEBSOCK_MAX_PATH_CNT
-#define PJ_WEBSOCK_MAX_PATH_CNT 8
+#  define PJ_WEBSOCK_MAX_PATH_CNT 8
 #endif
 
 /**
  *  Max number of allowed sub-protocols
  */
 #ifndef PJ_WEBSOCK_MAX_SUB_PROTO_CNT
-#define PJ_WEBSOCK_MAX_SUB_PROTO_CNT 8
+#  define PJ_WEBSOCK_MAX_SUB_PROTO_CNT 8
 #endif
 
 /**
@@ -46,14 +46,14 @@ enum pj_websock_ver {
  *  Websocket Data Framing header
  */
 typedef struct pj_websock_frame_hdr {
-    unsigned fin : 1;    /**< Whether is the final fragment in a message*/
-    unsigned rsv1 : 1;   /**< Reserved */
-    unsigned rsv2 : 1;   /**< Reserved */
-    unsigned rsv3 : 1;   /**< Reserved */
-    unsigned opcode : 4; /**< The interpretation of the payload */
-    unsigned mask : 1;   /**< Whether the payload is masked */
-    pj_uint64_t len;     /**< Payload length */
-    pj_uint8_t mkey[4];  /**< Masking-key */
+    unsigned fin:1;     /**< Whether is the final fragment in a message*/
+    unsigned rsv1:1;    /**< Reserved */
+    unsigned rsv2:1;    /**< Reserved */
+    unsigned rsv3:1;    /**< Reserved */
+    unsigned opcode:4;  /**< The interpretation of the payload */
+    unsigned mask:1;    /**< Whether the payload is masked */
+    pj_uint64_t len;    /**< Payload length */
+    pj_uint8_t mkey[4]; /**< Masking-key */
 } pj_websock_frame_hdr;
 
 /**
@@ -149,7 +149,6 @@ typedef struct pj_websock_http_hdr {
     pj_str_t val;
 } pj_websock_http_hdr;
 
-
 /**
  * Wesocket ssl certificate files
  */
@@ -159,7 +158,6 @@ typedef struct pj_websock_ssl_cert {
     pj_str_t private_file;
     pj_str_t private_pass;
 } pj_websock_ssl_cert;
-
 
 /**
  * Websock endpoint configure

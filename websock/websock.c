@@ -47,7 +47,7 @@ static pj_str_t PJ_WEBSOCK_KEY_VALUE_UPGRADE = {
     7,
 };
 
-static const pj_time_val HANDSHAKE_TIMEOUT = { 10, 0 };
+static const pj_time_val HANDSHAKE_TIMEOUT = {10, 0};
 enum {
     TIMER_ID_NONE,
     TIMER_ID_HANDSHAKE,
@@ -159,8 +159,7 @@ pj_status_t pj_websock_endpt_create(pj_websock_endpt_cfg *opt,
     endpt->max_rx_bufsize = opt->max_rx_bufsize;
     endpt->async_cnt = opt->async_cnt;
 
-    if (opt->cert)
-    {
+    if (opt->cert) {
         endpt->cert = PJ_POOL_ZALLOC_T(pool, pj_websock_ssl_cert);
         pj_strdup_with_null(pool, &endpt->cert->ca_file, &opt->cert->ca_file);
         pj_strdup_with_null(pool, &endpt->cert->cert_file,
@@ -183,8 +182,7 @@ pj_status_t pj_websock_endpt_destroy(pj_websock_endpoint *endpt)
 {
     if (!endpt)
         return PJ_EINVAL;
-    while (pj_list_empty(endpt->conn_list) == PJ_FALSE)
-    {
+    while (pj_list_empty(endpt->conn_list) == PJ_FALSE) {
         pj_websock_t *c = endpt->conn_list->next;
         pj_websock_close(c, PJ_WEBSOCK_SC_NORMAL_CLOSURE, NULL);
     }
@@ -199,18 +197,14 @@ static void timer_callback(pj_timer_heap_t *heap, pj_timer_entry *e)
     char buf[1000];
     PJ_UNUSED_ARG(heap);
 
-    if (c->timer.id == TIMER_ID_HANDSHAKE)
-    {
+    if (c->timer.id == TIMER_ID_HANDSHAKE) {
         PJ_LOG(2, (THIS_FILE, "#%s: handshake timeout !!",
                    pj_websock_print(c, buf, sizeof(buf))));
         pj_assert(c->state == PJ_WEBSOCK_STATE_CONNECTING);
         c->timer.id = TIMER_ID_NONE;
-        if (c->is_incoming)
-        {
+        if (c->is_incoming) {
             /* incoming connection no request */
-        }
-        else
-        {
+        } else {
             /* outgoing request no response */
             if (c->cb.on_connect_complete)
                 c->cb.on_connect_complete(c, PJ_ETIMEDOUT);
@@ -218,9 +212,7 @@ static void timer_callback(pj_timer_heap_t *heap, pj_timer_entry *e)
 
         /* close */
         pj_websock_close(c, PJ_WEBSOCK_SC_ABNORMAL_CLOSURE, NULL);
-    }
-    else if (c->timer.id == TIMER_ID_PING)
-    {
+    } else if (c->timer.id == TIMER_ID_PING) {
         pj_assert(c->state == PJ_WEBSOCK_STATE_OPEN);
         pj_websock_send(c, PJ_WEBSOCK_OP_PING, PJ_TRUE, !c->is_incoming, 0, 0);
 
@@ -248,13 +240,10 @@ static void generate_http_request_msg(const pj_http_uri *http_uri,
     p += pj_ansi_snprintf(p, end - p, "GET %.*s HTTP/1.1\r\n",
                           (int)http_uri->path.slen, http_uri->path.ptr);
     /* host */
-    if (http_uri->port.slen == 0)
-    {
+    if (http_uri->port.slen == 0) {
         p += pj_ansi_snprintf(p, end - p, "Host: %.*s\r\n",
                               (int)http_uri->host.slen, http_uri->host.ptr);
-    }
-    else
-    {
+    } else {
         p += pj_ansi_snprintf(p, end - p, "Host: %.*s:%.*s\r\n",
                               (int)http_uri->host.slen, http_uri->host.ptr,
                               (int)http_uri->port.slen, http_uri->port.ptr);
@@ -276,8 +265,7 @@ static void generate_http_request_msg(const pj_http_uri *http_uri,
                           websock_key);
 
     /* Other headers */
-    for (i = 0; i < hdr_cnt; i++)
-    {
+    for (i = 0; i < hdr_cnt; i++) {
         p += pj_ansi_snprintf(p, end - p, "%.*s: %.*s\r\n",
                               (int)hdrs[i].key.slen, hdrs[i].key.ptr,
                               (int)hdrs[i].val.slen, hdrs[i].val.ptr);
@@ -330,8 +318,7 @@ pj_status_t pj_websock_connect(pj_websock_endpoint *endpt,
 
     /* parse request url */
     status = pj_http_uri_parse(url, &http_uri);
-    if (status != PJ_SUCCESS)
-    {
+    if (status != PJ_SUCCESS) {
         PJ_PERROR(1, (THIS_FILE, status, "parse url:%s error", url));
         goto on_error;
     }
@@ -343,8 +330,7 @@ pj_status_t pj_websock_connect(pj_websock_endpoint *endpt,
                      (int)http_uri.host.slen, http_uri.host.ptr, port);
     host = pj_str(str_host);
     status = pj_sockaddr_parse(pj_AF_UNSPEC(), 0, &host, &c->peer);
-    if (status != PJ_SUCCESS)
-    {
+    if (status != PJ_SUCCESS) {
         PJ_PERROR(1, (THIS_FILE, status, "parse sockaddr:%s error", url));
         goto on_error;
     }
@@ -357,8 +343,7 @@ pj_status_t pj_websock_connect(pj_websock_endpoint *endpt,
 
     /* validate the request msg that generated */
     status = pj_http_msg_parse(msg_buf, msg_len, &msg_dummy, NULL);
-    if (status != PJ_SUCCESS)
-    {
+    if (status != PJ_SUCCESS) {
         PJ_PERROR(1, (THIS_FILE, status, "request message"));
         goto on_error;
     }
@@ -374,8 +359,7 @@ pj_status_t pj_websock_connect(pj_websock_endpoint *endpt,
     tp_param.max_rx_bufsize = endpt->max_rx_bufsize;
     tp_param.async_cnt = endpt->async_cnt;
 
-    switch (tp_type)
-    {
+    switch (tp_type) {
     case PJ_WEBSOCK_TRANSPORT_TCP:
         status = pj_websock_transport_create_tcp(pool, &tp_param, &c->tp);
         break;
@@ -388,8 +372,7 @@ pj_status_t pj_websock_connect(pj_websock_endpoint *endpt,
         status = PJ_ENOTSUP;
         break;
     }
-    if (status != PJ_SUCCESS)
-    {
+    if (status != PJ_SUCCESS) {
         PJ_PERROR(1, (THIS_FILE, status, "transport create error"));
         goto on_error;
     }
@@ -405,8 +388,7 @@ pj_status_t pj_websock_connect(pj_websock_endpoint *endpt,
     if (status == PJ_SUCCESS)
         return PJ_SUCCESS;
 
-    if (status != PJ_EPENDING)
-    {
+    if (status != PJ_EPENDING) {
         PJ_PERROR(1, (THIS_FILE, status, "transport start connect error"));
         goto on_error;
     }
@@ -500,20 +482,15 @@ pj_status_t pj_websock_send(pj_websock_t *c,
     *p++ = (fini << 7) | (opcode & 0x0f);
 
     /* mask flag & payload len */
-    if (len <= 125)
-    {
+    if (len <= 125) {
         /* 7bits */
         *p++ = (mask << 7) | (len & 0x7f);
-    }
-    else if (len <= 0xffff)
-    {
+    } else if (len <= 0xffff) {
         /* 7bits +  16bits */
         *p++ = (mask << 7) | 126;
         *((pj_uint16_t *)p) = pj_htons(len);
         p += 2;
-    }
-    else
-    {
+    } else {
         /* 7 bits + 64 bits */
         *p++ = (mask << 7) | 127;
         *((pj_uint64_t *)p) = pj_htonll(len);
@@ -521,21 +498,18 @@ pj_status_t pj_websock_send(pj_websock_t *c,
     }
 
     /* 4 bytes: mask key */
-    if (mask)
-    {
+    if (mask) {
         pj_create_random_string(p, 4);
         mkey = p;
         p += 4;
     }
 
     pdata = p;
-    if (len > 0)
-    {
+    if (len > 0) {
         pj_memcpy(p, data, len);
         p += len;
 
-        if (mask)
-        {
+        if (mask) {
             int i = 0;
             for (i = 0; i < len; i++)
                 pdata[i] = pdata[i] ^ mkey[i % 4];
@@ -553,13 +527,12 @@ pj_status_t pj_websock_send(pj_websock_t *c,
     tdata->hdr.len = len;
     tdata->data = data;
     tdata->send_key.user_data = tdata;
-    status =
-        pj_websock_transport_send(c->tp, &tdata->send_key, tx_buf, &tx_len, 0);
+    status = pj_websock_transport_send(c->tp, &tdata->send_key, tx_buf, &tx_len,
+                                       0);
     if (status == PJ_SUCCESS)
         return PJ_SUCCESS;
 
-    if (status != PJ_EPENDING)
-    {
+    if (status != PJ_EPENDING) {
         PJ_PERROR(1, (THIS_FILE, status, "send error"));
         return status;
     }
@@ -599,15 +572,13 @@ pj_status_t pj_websock_listen(pj_websock_endpoint *endpt,
     PJ_LOG(4, (THIS_FILE, "Listen %s %s", sbuf,
                pj_websock_transport_str(tp_type)));
 
-    switch (tp_type)
-    {
+    switch (tp_type) {
     case PJ_WEBSOCK_TRANSPORT_TCP:
         status = pj_websock_transport_create_tcp(pool, &tp_param, &tp);
         break;
 #if defined(PJ_HAS_SSL_SOCK) && PJ_HAS_SSL_SOCK != 0
     case PJ_WEBSOCK_TRANSPORT_TLS:
-        if (endpt->cert)
-        {
+        if (endpt->cert) {
             tp_param.cert.ca_file = endpt->cert->ca_file;
             tp_param.cert.cert_file = endpt->cert->cert_file;
             tp_param.cert.private_file = endpt->cert->private_file;
@@ -620,8 +591,7 @@ pj_status_t pj_websock_listen(pj_websock_endpoint *endpt,
         status = PJ_ENOTSUP;
         break;
     }
-    if (status != PJ_SUCCESS)
-    {
+    if (status != PJ_SUCCESS) {
         PJ_PERROR(1, (THIS_FILE, status, "server create transport"));
         goto on_error;
     }
@@ -630,8 +600,7 @@ pj_status_t pj_websock_listen(pj_websock_endpoint *endpt,
     tp->cb.on_accept_complete = on_accept_complete;
     status = pj_websock_transport_start_accept(tp, local_addr,
                                                pj_sockaddr_get_len(local_addr));
-    if (status != PJ_SUCCESS)
-    {
+    if (status != PJ_SUCCESS) {
         PJ_PERROR(1, (THIS_FILE, status, "server start accept"));
         goto on_error;
     }
@@ -658,12 +627,9 @@ on_error:
 pj_status_t pj_websock_set_callbacks(pj_websock_t *c, const pj_websock_cb *cb)
 {
     PJ_ASSERT_RETURN(c, PJ_EINVAL);
-    if (cb)
-    {
+    if (cb) {
         pj_memcpy(&c->cb, cb, sizeof(*cb));
-    }
-    else
-    {
+    } else {
         pj_bzero(&c->cb, sizeof(c->cb));
     }
     return PJ_SUCCESS;
@@ -693,29 +659,23 @@ pj_status_t pj_websock_enable_ping(pj_websock_t *c, pj_time_val *t)
     PJ_ASSERT_RETURN(c, PJ_EINVAL);
     PJ_ASSERT_RETURN(!c->is_srv, PJ_EINVALIDOP); /* should't listening server */
 
-    if (t && PJ_TIME_VAL_MSEC(*t))
-    {
+    if (t && PJ_TIME_VAL_MSEC(*t)) {
         /* enable*/
-        if (c->state != PJ_WEBSOCK_STATE_OPEN)
-        {
+        if (c->state != PJ_WEBSOCK_STATE_OPEN) {
             PJ_LOG(2, (THIS_FILE, "%s state is not OPEN", c->pool->obj_name));
             return PJ_EINVALIDOP;
         }
 
-        if (c->timer.id != TIMER_ID_NONE)
-        {
+        if (c->timer.id != TIMER_ID_NONE) {
             return PJ_EIGNORED;
         }
 
         pj_timer_heap_schedule(c->endpt->timer_heap, &c->timer, t);
         c->timer.id = TIMER_ID_PING;
         c->ping_interval = *t;
-    }
-    else
-    {
+    } else {
         /* disable */
-        if (c->timer.id != TIMER_ID_PING)
-        {
+        if (c->timer.id != TIMER_ID_PING) {
             return PJ_EIGNORED;
         }
         pj_timer_heap_cancel(c->endpt->timer_heap, &c->timer);
@@ -761,8 +721,7 @@ const char *pj_websock_print(pj_websock_t *c, char *buf, int len)
 
 const char *pj_websock_opcode_str(int opcode)
 {
-    switch (opcode)
-    {
+    switch (opcode) {
     case PJ_WEBSOCK_OP_TEXT:
         return "TEXT";
     case PJ_WEBSOCK_OP_BIN:
@@ -783,8 +742,7 @@ const char *pj_websock_opcode_str(int opcode)
 
 const char *pj_websock_state_str(int state)
 {
-    switch (state)
-    {
+    switch (state) {
     case PJ_WEBSOCK_STATE_CONNECTING:
         return "CONNECTING";
     case PJ_WEBSOCK_STATE_OPEN:
@@ -801,8 +759,7 @@ const char *pj_websock_state_str(int state)
 
 const char *pj_websock_transport_str(int type)
 {
-    switch (type)
-    {
+    switch (type) {
     case PJ_WEBSOCK_TRANSPORT_TCP:
         return "TCP";
     case PJ_WEBSOCK_TRANSPORT_TLS:
@@ -822,8 +779,7 @@ pj_status_t pj_websock_set_support_path(pj_websock_t *srv,
     PJ_ASSERT_RETURN(srv->is_srv, PJ_EINVALIDOP);
     PJ_ASSERT_RETURN(cnt <= PJ_WEBSOCK_MAX_PATH_CNT, PJ_ETOOMANY);
 
-    for (i = 0; i < cnt; i++)
-    {
+    for (i = 0; i < cnt; i++) {
         pj_strdup_with_null(srv->pool, &srv->filter.paths[i], &paths[i]);
     }
     srv->filter.path_cnt = cnt;
@@ -839,8 +795,7 @@ pj_status_t pj_websock_set_support_subproto(pj_websock_t *srv,
     PJ_ASSERT_RETURN(srv->is_srv, PJ_EINVALIDOP);
     PJ_ASSERT_RETURN(cnt <= PJ_WEBSOCK_MAX_SUB_PROTO_CNT, PJ_ETOOMANY);
 
-    for (i = 0; i < cnt; i++)
-    {
+    for (i = 0; i < cnt; i++) {
         pj_strdup_with_null(srv->pool, &srv->filter.subprotos[i], &protos[i]);
     }
     srv->filter.proto_cnt = cnt;
@@ -856,8 +811,7 @@ static pj_bool_t on_connect_complete(pj_websock_transport_t *t,
     PJ_PERROR(6, (THIS_FILE, status, "%s() %s status:%d", __FUNCTION__,
                   c->pool->obj_name, status));
 
-    if (status != PJ_SUCCESS)
-    {
+    if (status != PJ_SUCCESS) {
         /* pengding connect fail */
         if (c->cb.on_connect_complete)
             c->cb.on_connect_complete(c, status);
@@ -868,8 +822,8 @@ static pj_bool_t on_connect_complete(pj_websock_transport_t *t,
 
     /*create and send http request */
     {
-        pj_pool_t *pool =
-            pj_pool_create(c->endpt->pf, "ws_tdata%p", 500, 500, NULL);
+        pj_pool_t *pool = pj_pool_create(c->endpt->pf, "ws_tdata%p", 500, 500,
+                                         NULL);
         pj_websock_tx_data *tdata = PJ_POOL_ZALLOC_T(pool, pj_websock_tx_data);
         char *buf = c->req_msg.ptr;
         pj_ssize_t size = c->req_msg.slen;
@@ -936,8 +890,7 @@ static void unmask_payload(pj_uint8_t *mkey,
     pj_uint64_t i;
     if (len <= 0)
         return;
-    for (i = 0; i < len; i++)
-    {
+    for (i = 0; i < len; i++) {
         p[i] = p[i] ^ mkey[(i + last_idx) % 4];
     }
 }
@@ -995,8 +948,7 @@ static pj_status_t http_reply_switching(pj_websock_t *c,
     p += pj_ansi_snprintf(p, end - p, "Sec-WebSocket-Accept: %.*s\r\n",
                           accept_len, accept);
 
-    if (c->subproto.slen > 0)
-    {
+    if (c->subproto.slen > 0) {
         p += pj_ansi_snprintf(p, end - p, "Sec-WebSocket-Protocol: %.*s\r\n",
                               (int)c->subproto.slen, c->subproto.ptr);
     }
@@ -1024,8 +976,7 @@ static pj_bool_t on_data_read(pj_websock_transport_t *t,
     pj_http_msg http_msg;
     pj_size_t http_msg_len;
 
-    if (status != PJ_SUCCESS)
-    {
+    if (status != PJ_SUCCESS) {
         if (c->cb.on_rx_msg)
             c->cb.on_rx_msg(c, NULL, status);
         pj_websock_close(c, PJ_WEBSOCK_SC_GOING_AWAY, NULL);
@@ -1033,27 +984,21 @@ static pj_bool_t on_data_read(pj_websock_transport_t *t,
     }
 
 again:
-    if (c->state == PJ_WEBSOCK_STATE_CONNECTING)
-    {
+    if (c->state == PJ_WEBSOCK_STATE_CONNECTING) {
         /* parse http message */
         PJ_LOG(5, (THIS_FILE, "%s start parse http msg:\n%.*s",
                    c->pool->obj_name, (int)left_size, pdata));
         status = pj_http_msg_parse(pdata, left_size, &http_msg, &http_msg_len);
         if (status != PJ_SUCCESS)
             PJ_PERROR(2, (THIS_FILE, status, "parse http msg"));
-        if (status == PJ_EPENDING)
-        {
+        if (status == PJ_EPENDING) {
             /* has pending data to read */
             goto on_pending;
         }
-        if (status != PJ_SUCCESS)
-        {
-            if (c->is_incoming)
-            {
+        if (status != PJ_SUCCESS) {
+            if (c->is_incoming) {
                 http_reply_forbidden(c);
-            }
-            else
-            {
+            } else {
                 if (c->cb.on_connect_complete)
                     c->cb.on_connect_complete(c, -PJ_WEBSOCK_SC_PROTOCOL_ERROR);
             }
@@ -1062,12 +1007,10 @@ again:
         }
     }
 
-    if (c->state == PJ_WEBSOCK_STATE_CONNECTING && c->is_incoming == PJ_FALSE)
-    {
+    if (c->state == PJ_WEBSOCK_STATE_CONNECTING && c->is_incoming == PJ_FALSE) {
         /* Outgoing websock connection recv http response */
         status = proc_websock_handshake(c, &http_msg);
-        if (status != PJ_SUCCESS)
-        {
+        if (status != PJ_SUCCESS) {
             if (c->cb.on_connect_complete)
                 c->cb.on_connect_complete(c, -PJ_WEBSOCK_SC_PROTOCOL_ERROR);
             pj_websock_close(c, PJ_WEBSOCK_SC_PROTOCOL_ERROR, NULL);
@@ -1082,17 +1025,14 @@ again:
         /* left size */
         left_size -= http_msg_len;
         pdata += http_msg_len;
-    }
-    else if (c->state == PJ_WEBSOCK_STATE_CONNECTING &&
-             c->is_incoming == PJ_TRUE)
-    {
+    } else if (c->state == PJ_WEBSOCK_STATE_CONNECTING &&
+               c->is_incoming == PJ_TRUE) {
         /* Incoming websock connection recv http request */
         pj_websock_t *parent = c->parent;
         pj_str_t websock_key;
 
         status = proc_websock_handshake(c, &http_msg);
-        if (status != PJ_SUCCESS)
-        {
+        if (status != PJ_SUCCESS) {
             http_reply_forbidden(c);
             pj_websock_close(c, PJ_WEBSOCK_SC_PROTOCOL_ERROR, NULL);
             return PJ_FALSE;
@@ -1105,8 +1045,7 @@ again:
 
         /* change state to connected */
         switch_websock_state(c, PJ_WEBSOCK_STATE_OPEN);
-        if (parent->cb.on_accept_complete)
-        {
+        if (parent->cb.on_accept_complete) {
             /* Should Parent notify this event */
             parent->cb.on_accept_complete(c, &c->peer,
                                           pj_sockaddr_get_len(&c->peer));
@@ -1121,9 +1060,7 @@ again:
         /* left size */
         left_size -= http_msg_len;
         pdata += http_msg_len;
-    }
-    else if (c->state == PJ_WEBSOCK_STATE_OPEN)
-    {
+    } else if (c->state == PJ_WEBSOCK_STATE_OPEN) {
         /* parse the incoming frame data */
         pj_uint8_t *p = (pj_uint8_t *)pdata;
         pj_uint8_t *paylod = NULL; /* payload data */
@@ -1132,11 +1069,9 @@ again:
         pj_uint8_t *mkey = hdr->mkey; /* mask key */
         pj_uint64_t expect_len;
 
-        if (c->pending_payload == PJ_FALSE)
-        {
+        if (c->pending_payload == PJ_FALSE) {
             expect_len = 2;
-            if (left_size < expect_len)
-            {
+            if (left_size < expect_len) {
                 goto on_pending;
             }
 
@@ -1147,34 +1082,26 @@ again:
             len = p[1] & 0x7f;
             if (hdr->mask)
                 expect_len += 4;
-            if (left_size < expect_len)
-            {
+            if (left_size < expect_len) {
                 goto on_pending;
             }
             p += 2;
 
             /* get payload length */
-            if (len <= 125)
-            {
+            if (len <= 125) {
                 expect_len += len;
-            }
-            else if (len == 126)
-            {
+            } else if (len == 126) {
                 expect_len += 2; /* 16bit length */
-                if (left_size < expect_len)
-                {
+                if (left_size < expect_len) {
                     goto on_pending;
                 }
 
                 len = pj_ntohs(*(pj_uint16_t *)p);
                 expect_len += len;
                 p += 2;
-            }
-            else
-            {
+            } else {
                 expect_len += 8; /* 64bit length */
-                if (left_size < expect_len)
-                {
+                if (left_size < expect_len) {
                     goto on_pending;
                 }
 
@@ -1186,15 +1113,13 @@ again:
             hdr->len = len;
 
             /* Get mask key */
-            if (hdr->mask)
-            {
+            if (hdr->mask) {
                 pj_memcpy(hdr->mkey, p, 4);
                 p += 4;
             }
 
             /* Get payload */
-            if (left_size < expect_len)
-            {
+            if (left_size < expect_len) {
                 goto on_pending_payload;
             }
 
@@ -1203,12 +1128,9 @@ again:
                 unmask_payload(mkey, p, len, rdata->has_read);
             paylod = p;
             p += len;
-        }
-        else
-        {
+        } else {
             expect_len = hdr->len - rdata->has_read;
-            if (left_size < expect_len)
-            {
+            if (left_size < expect_len) {
                 goto on_pending_payload;
             }
 
@@ -1225,8 +1147,7 @@ again:
         rdata->data_len = len;
         rdata->has_read += len;
 
-        if (c->cb.on_rx_msg)
-        {
+        if (c->cb.on_rx_msg) {
             if (!c->cb.on_rx_msg(c, rdata, status))
                 return PJ_FALSE;
         }
@@ -1244,8 +1165,7 @@ again:
 
 on_pending:
     *remainder = left_size;
-    if (*remainder >= c->endpt->max_rx_bufsize)
-    {
+    if (*remainder >= c->endpt->max_rx_bufsize) {
         PJ_LOG(2, (THIS_FILE, "!!!read buffer is full (%d/%d)",
                    c->endpt->max_rx_bufsize, left_size));
     }
@@ -1254,11 +1174,9 @@ on_pending:
 on_pending_payload:
     *remainder = left_size;
     c->pending_payload = PJ_TRUE;
-    if (*remainder >= c->endpt->max_rx_bufsize)
-    {
+    if (*remainder >= c->endpt->max_rx_bufsize) {
         pj_uint64_t exclude_len = 0;
-        if (rdata->has_read == 0)
-        {
+        if (rdata->has_read == 0) {
             /* Exclude the frame header */
             exclude_len = 2;
             if (rdata->hdr.len > 0xffff)
@@ -1275,8 +1193,7 @@ on_pending_payload:
             unmask_payload(rdata->hdr.mkey, (pj_uint8_t *)rdata->data,
                            rdata->data_len, rdata->has_read);
         rdata->has_read += rdata->data_len;
-        if (c->cb.on_rx_msg)
-        {
+        if (c->cb.on_rx_msg) {
             if (!c->cb.on_rx_msg(c, rdata, status))
                 return PJ_FALSE;
         }
@@ -1310,7 +1227,7 @@ static void generate_websock_key(char *buf, int *size)
 
 static void generate_websock_accept(const pj_str_t *key, char *buf, int *size)
 {
-    pj_str_t salt = { "258EAFA5-E914-47DA-95CA-C5AB0DC85B11", 36 };
+    pj_str_t salt = {"258EAFA5-E914-47DA-95CA-C5AB0DC85B11", 36};
     pj_sha1_context ctx;
     pj_uint8_t sha1[PJ_SHA1_DIGEST_SIZE];
     int len = *size;
@@ -1351,55 +1268,44 @@ static pj_bool_t verify_srv_filter(pj_websock_t *srv,
     pj_str_t subproto;
 
     /* check if request path support */
-    if (srv->filter.path_cnt > 0)
-    {
-        for (i = 0; i < srv->filter.path_cnt; i++)
-        {
-            if (!pj_stricmp(&srv->filter.paths[i], req_path))
-            {
+    if (srv->filter.path_cnt > 0) {
+        for (i = 0; i < srv->filter.path_cnt; i++) {
+            if (!pj_stricmp(&srv->filter.paths[i], req_path)) {
                 found = PJ_TRUE;
                 pj_strdup_with_null(c->pool, &c->req_path, req_path);
                 break;
             }
         }
 
-        if (found == PJ_FALSE)
-        {
+        if (found == PJ_FALSE) {
             PJ_LOG(1, (THIS_FILE, "%s() not support path: %.*s", __FUNCTION__,
                        (int)req_path->slen, req_path->ptr));
             return PJ_FALSE;
         }
-    }
-    else
-    {
+    } else {
         pj_strdup_with_null(c->pool, &c->req_path, req_path);
     }
 
     /* check if sub-proto support */
     pj_http_msg_find_hdr(req, &PJ_WEBSOCK_KEY_NAME_SEC_WEBSOCKET_PROTO,
                          &subproto);
-    if (srv->filter.proto_cnt > 0)
-    {
-        if (subproto.slen == 0)
-        {
+    if (srv->filter.proto_cnt > 0) {
+        if (subproto.slen == 0) {
             PJ_LOG(1, (THIS_FILE, "%s() request no subproto", __FUNCTION__));
             return PJ_FALSE;
         }
 
         found = PJ_FALSE;
-        for (i = 0; i < srv->filter.proto_cnt; i++)
-        {
+        for (i = 0; i < srv->filter.proto_cnt; i++) {
             pj_str_t *proto = &srv->filter.subprotos[i];
             pj_ssize_t found_idx = 0;
-            pj_str_t token = { 0 };
-            while (found_idx != subproto.slen)
-            {
+            pj_str_t token = {0};
+            while (found_idx != subproto.slen) {
                 found_idx = pj_strtok2(&subproto, ",", &token,
                                        (found_idx + token.slen));
 
                 pj_str_t *xproto = pj_strtrim(&token);
-                if (!pj_stricmp(proto, xproto))
-                {
+                if (!pj_stricmp(proto, xproto)) {
                     found = PJ_TRUE;
                     pj_strdup_with_null(c->pool, &c->subproto, proto);
                     break;
@@ -1410,17 +1316,13 @@ static pj_bool_t verify_srv_filter(pj_websock_t *srv,
                 break;
         }
 
-        if (found == PJ_FALSE)
-        {
+        if (found == PJ_FALSE) {
             PJ_LOG(1, (THIS_FILE, "%s() not support subprotol: %.*s",
                        __FUNCTION__, (int)subproto.slen, subproto.ptr));
             return PJ_FALSE;
         }
-    }
-    else
-    {
-        if (subproto.slen > 0)
-        {
+    } else {
+        if (subproto.slen > 0) {
             /* default choose the first sub-protol that request */
             pj_str_t token;
             pj_strtok2(&subproto, ",", &token, 0);
@@ -1438,13 +1340,10 @@ static pj_status_t proc_websock_handshake(pj_websock_t *c,
     pj_str_t s;
 
     /* check http msg direct is ok */
-    if (c->is_incoming)
-    {
+    if (c->is_incoming) {
         if (pj_http_msg_is_response(msg) == PJ_TRUE)
             return PJ_EINVAL;
-    }
-    else
-    {
+    } else {
         if (pj_http_msg_is_response(msg) == PJ_FALSE)
             return PJ_EINVAL;
         /* check response status code must be 101 */
@@ -1470,8 +1369,7 @@ static pj_status_t proc_websock_handshake(pj_websock_t *c,
             return PJ_EINVAL;
     }
 
-    if (c->is_incoming)
-    {
+    if (c->is_incoming) {
         /* must matched: Sec-WebSocket-Version: 13 */
         status = pj_http_msg_find_hdr(
             msg, &PJ_WEBSOCK_KEY_NAME_SEC_WEBSOCKET_VERSION, &s);
@@ -1487,13 +1385,10 @@ static pj_status_t proc_websock_handshake(pj_websock_t *c,
             return PJ_EINVAL;
 
         /* verify request path and sub-protols by server filter */
-        if (verify_srv_filter(c->parent, c, msg) == PJ_FALSE)
-        {
+        if (verify_srv_filter(c->parent, c, msg) == PJ_FALSE) {
             return PJ_EINVAL;
         }
-    }
-    else
-    {
+    } else {
         pj_http_msg req_msg;
         pj_str_t websock_key;
         pj_str_t websock_accept;
@@ -1509,8 +1404,7 @@ static pj_status_t proc_websock_handshake(pj_websock_t *c,
                              &websock_accept);
 
         /* verify Sec-WebSocket-Accept with request Sec-WebSocket-Key */
-        if (!validate_websock_accept(&websock_accept, &websock_key))
-        {
+        if (!validate_websock_accept(&websock_accept, &websock_key)) {
             /* parse error */
             PJ_LOG(1, (THIS_FILE, "validate websock-accept fail"));
             return PJ_EINVAL;
@@ -1532,21 +1426,16 @@ static void switch_websock_state(pj_websock_t *c, int state)
         return;
     c->state = state;
 
-    if (state == PJ_WEBSOCK_STATE_OPEN)
-    {
+    if (state == PJ_WEBSOCK_STATE_OPEN) {
         /* stop handshake timer */
-        if (c->timer.id == TIMER_ID_HANDSHAKE)
-        {
+        if (c->timer.id == TIMER_ID_HANDSHAKE) {
             pj_timer_heap_cancel(c->endpt->timer_heap, &c->timer);
             c->timer.id = TIMER_ID_NONE;
         }
-    }
-    else if (state == PJ_WEBSOCK_STATE_CLOSING ||
-             state == PJ_WEBSOCK_STATE_CLOSED)
-    {
+    } else if (state == PJ_WEBSOCK_STATE_CLOSING ||
+               state == PJ_WEBSOCK_STATE_CLOSED) {
         /* stop any timer */
-        if (c->timer.id != TIMER_ID_NONE)
-        {
+        if (c->timer.id != TIMER_ID_NONE) {
             pj_timer_heap_cancel(c->endpt->timer_heap, &c->timer);
             c->timer.id = TIMER_ID_NONE;
         }
