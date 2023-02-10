@@ -373,7 +373,8 @@ PJ_DEF(pj_status_t) pj_websock_connect(pj_websock_endpoint *endpt,
         break;
     }
     if (status != PJ_SUCCESS) {
-        PJ_PERROR(1, (THIS_FILE, status, "transport create error"));
+        PJ_PERROR(1, (THIS_FILE, status, "%s transport create error",
+                      pj_websock_transport_str(tp_type)));
         goto on_error;
     }
     c->tp->user_data = c;
@@ -594,7 +595,8 @@ PJ_DEF(pj_status_t) pj_websock_listen(pj_websock_endpoint *endpt,
         break;
     }
     if (status != PJ_SUCCESS) {
-        PJ_PERROR(1, (THIS_FILE, status, "server create transport"));
+        PJ_PERROR(1, (THIS_FILE, status, "%s server create transport",
+                      pj_websock_transport_str(tp_type)));
         goto on_error;
     }
 
@@ -603,7 +605,8 @@ PJ_DEF(pj_status_t) pj_websock_listen(pj_websock_endpoint *endpt,
     status = pj_websock_transport_start_accept(tp, local_addr,
                                                pj_sockaddr_get_len(local_addr));
     if (status != PJ_SUCCESS) {
-        PJ_PERROR(1, (THIS_FILE, status, "server start accept"));
+        PJ_PERROR(1, (THIS_FILE, status, "%s server start accept",
+                      pj_websock_transport_str(tp_type)));
         goto on_error;
     }
 
