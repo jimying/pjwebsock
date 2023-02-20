@@ -21,6 +21,40 @@ PJ_BEGIN_DECL
 typedef struct pj_websock_transport_t pj_websock_transport_t;
 
 /**
+ * Websocket transport operations
+ */
+typedef struct pj_websock_transport_op {
+    /**
+     * Connect to remote address
+     */
+    pj_status_t (*connect)(pj_websock_transport_t *t,
+                           const pj_sockaddr_t *remaddr,
+                           int addr_len);
+
+    /**
+     * Accept on local address
+     */
+    pj_status_t (*accept)(pj_websock_transport_t *t,
+                          const pj_sockaddr_t *local_addr,
+                          int addr_len);
+
+    /**
+     * Transport destroy
+     *
+     */
+    pj_status_t (*destroy)(pj_websock_transport_t *t);
+
+    /**
+     * Transport send data
+     */
+    pj_status_t (*send)(pj_websock_transport_t *t,
+                        pj_ioqueue_op_key_t *send_key,
+                        const void *data,
+                        pj_ssize_t *size,
+                        unsigned flags);
+} pj_websock_transport_op;
+
+/**
  * Websocket transport callbacks
  */
 typedef struct pj_websock_transport_cb {
@@ -53,24 +87,12 @@ struct pj_websock_transport_t {
     unsigned async_cnt;          /**< the number of asynchronous read */
     const void *user_data;       /**< User data */
     pj_websock_transport_cb cb;  /**< User transport callbacks */
-    pj_status_t (*connect)(pj_websock_transport_t *t,
-                           const pj_sockaddr_t *remaddr,
-                           int addr_len);
-    pj_status_t (*accept)(pj_websock_transport_t *t,
-                          const pj_sockaddr_t *local_addr,
-                          int addr_len);
-    pj_status_t (*destroy)(pj_websock_transport_t *t);
-    pj_status_t (*send)(pj_websock_transport_t *t,
-                        pj_ioqueue_op_key_t *send_key,
-                        const void *data,
-                        pj_ssize_t *size,
-                        unsigned flags);
+    pj_websock_transport_op *op; /**< Transport operations */
 };
 
 /**
  * Websocket transport creation parameters
  */
-
 typedef struct pj_websock_transport_param {
     pj_ioqueue_t *ioq;
     pj_timer_heap_t *timer_heap;

@@ -38,6 +38,16 @@ static pj_bool_t on_data_sent(pj_ssl_sock_t *ssock,
                               pj_ioqueue_op_key_t *send_key,
                               pj_ssize_t sent);
 
+/**
+ * TLS transport operations
+ */
+static pj_websock_transport_op tls_op = {
+    .connect = tp_connect,
+    .accept = tp_accept,
+    .destroy = tp_destroy,
+    .send = tp_send,
+};
+
 PJ_DEF(pj_status_t)
 pj_websock_transport_create_tls(pj_pool_t *pool,
                                 pj_websock_transport_param *param,
@@ -65,10 +75,7 @@ pj_websock_transport_create_tls(pj_pool_t *pool,
     tp->base.ioq = param->ioq;
     tp->base.timer_heap = param->timer_heap;
     tp->base.pf = param->pf;
-    tp->base.accept = tp_accept;
-    tp->base.connect = tp_connect;
-    tp->base.destroy = tp_destroy;
-    tp->base.send = tp_send;
+    tp->base.op = &tls_op;
     tp->base.user_data = param->user_data;
     tp->base.max_rx_bufsize = param->max_rx_bufsize;
     tp->base.async_cnt = param->async_cnt;

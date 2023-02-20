@@ -38,6 +38,16 @@ static pj_bool_t on_data_sent(pj_activesock_t *asock,
                               pj_ssize_t sent);
 
 /**
+ * Tcp transport operations
+ */
+static pj_websock_transport_op tcp_op = {
+    .connect = tp_connect,
+    .accept = tp_accept,
+    .destroy = tp_destroy,
+    .send = tp_send,
+};
+
+/**
  *  Disable tcp timewait
  */
 static void pj_util_disable_tcp_timewait(pj_sock_t sock)
@@ -74,10 +84,7 @@ pj_websock_transport_create_tcp(pj_pool_t *pool,
     tp->base.pool = xpool;
     tp->base.ioq = param->ioq;
     tp->base.pf = param->pf;
-    tp->base.accept = tp_accept;
-    tp->base.connect = tp_connect;
-    tp->base.destroy = tp_destroy;
-    tp->base.send = tp_send;
+    tp->base.op = &tcp_op;
     tp->base.user_data = param->user_data;
     tp->base.max_rx_bufsize = param->max_rx_bufsize;
     tp->base.async_cnt = param->async_cnt;
