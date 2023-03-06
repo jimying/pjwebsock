@@ -311,6 +311,8 @@ PJ_DEF(pj_status_t) pj_http_msg_parse(const void *data,
 
     PJ_TRY
     {
+        while (*scanner.curptr == '\r' || *scanner.curptr == '\n')
+            pj_scan_get_newline(&scanner);
         http_parse_start_line(&scanner, msg);
         http_parse_headers(&scanner, msg);
         http_parse_body(&scanner, msg);
