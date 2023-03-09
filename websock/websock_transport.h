@@ -99,7 +99,7 @@ typedef struct pj_websock_transport_param {
     pj_pool_factory *pf;
     pj_websock_transport_cb *cb;
     const void *user_data;
-    int max_rx_bufsize;
+    unsigned max_rx_bufsize;
     unsigned async_cnt;
 
     struct {

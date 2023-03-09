@@ -38,7 +38,7 @@ typedef struct pj_websock_t pj_websock_t;
 /**
  * Websocket version
  */
-enum pj_websock_ver {
+typedef enum pj_websock_ver {
     PJ_WEBSOCK_VERSION = 13,
 } pj_websock_ver;
 
@@ -167,7 +167,7 @@ typedef struct pj_websock_endpt_cfg {
     pj_ioqueue_t *ioq;
     pj_timer_heap_t *timer_heap;
     pj_websock_ssl_cert *cert;
-    int max_rx_bufsize;
+    unsigned max_rx_bufsize;
     unsigned async_cnt;
 } pj_websock_endpt_cfg;
 

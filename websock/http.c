@@ -283,7 +283,7 @@ static void http_parse_body(pj_scanner *scanner, pj_http_msg *msg)
 
     if (len == 0)
         return;
-    if (scanner->end - scanner->curptr < len) {
+    if (scanner->end - scanner->curptr < (int)len) {
         /* incomplete */
         PJ_THROW(PJ_EPENDING);
     }

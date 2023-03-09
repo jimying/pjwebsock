@@ -59,7 +59,7 @@ struct pj_websock_endpoint {
     pj_ioqueue_t *ioq;
     pj_timer_heap_t *timer_heap;
     pj_websock_ssl_cert *cert;
-    int max_rx_bufsize;
+    unsigned max_rx_bufsize;
     unsigned async_cnt;
     pj_pool_t *pool;
     pj_websock_t *conn_list;
@@ -407,6 +407,8 @@ PJ_DEF(pj_status_t) pj_websock_close(pj_websock_t *c,
                                      int code,
                                      const char *reason)
 {
+    PJ_UNUSED_ARG(code);
+    PJ_UNUSED_ARG(reason);
     PJ_ASSERT_RETURN(c, PJ_EINVAL);
     switch_websock_state(c, PJ_WEBSOCK_STATE_CLOSING);
     pj_list_erase(c);
@@ -475,7 +477,6 @@ PJ_DEF(pj_status_t) pj_websock_send(pj_websock_t *c,
 
     PJ_ASSERT_RETURN(c, PJ_EINVAL);
     PJ_ASSERT_RETURN(c->state == PJ_WEBSOCK_STATE_OPEN, PJ_EINVALIDOP);
-    PJ_ASSERT_RETURN(len >= 0, PJ_EINVAL);
 
     pool = pj_pool_create(c->endpt->pf, "ws_tdata%p", 1000, 1000, NULL);
     tx_buf = (char *)pj_pool_alloc(pool, len + sizeof(pj_websock_frame_hdr));
@@ -513,7 +514,7 @@ PJ_DEF(pj_status_t) pj_websock_send(pj_websock_t *c,
         p += len;
 
         if (mask) {
-            int i = 0;
+            pj_size_t i = 0;
             for (i = 0; i < len; i++)
                 pdata[i] = pdata[i] ^ mkey[i % 4];
         }
@@ -857,6 +858,7 @@ static pj_bool_t on_accept_complete(pj_websock_transport_t *t,
                                     const pj_sockaddr_t *src_addr,
                                     int src_addr_len)
 {
+    PJ_UNUSED_ARG(src_addr_len);
     pj_websock_t *parent = (pj_websock_t *)t->user_data;
     pj_websock_t *newc;
     pj_websock_endpoint *endpt = parent->endpt;

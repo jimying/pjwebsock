@@ -56,6 +56,7 @@ static void app_destroy()
 
 static int work_proc(void *arg)
 {
+    PJ_UNUSED_ARG(arg);
     while (!g_quit) {
         pj_time_val timeout = {0, 20};
         pj_time_val timeout2 = {0, 0};
@@ -171,6 +172,8 @@ static int on_accept_complete(pj_websock_t *c,
                               const pj_sockaddr_t *src_addr,
                               int src_addr_len)
 {
+    PJ_UNUSED_ARG(src_addr);
+    PJ_UNUSED_ARG(src_addr_len);
     pj_websock_cb cb;
     char buf[1000];
     PJ_LOG(4, (THIS_FILE, "accept new connection...%s",
@@ -197,6 +200,8 @@ static int on_accept_complete(pj_websock_t *c,
 
 int main(int argc, char **argv)
 {
+    PJ_UNUSED_ARG(argc);
+    PJ_UNUSED_ARG(argv);
     int status;
     char cmd[80];
     unsigned log_decor;
