@@ -7,6 +7,10 @@ else
 	PATH_3RD := thirdparty.$(ARCH)
 endif
 CFLAGS := -Wall
+CFLAGS += -Wextra
+#CFLAGS += -Wunused-but-set-variable
+#CFLAGS += -Wcast-function-type
+#CFLAGS += -Wsingle-bit-bitfield-constant-conversion
 CFLAGS += -DPJ_AUTOCONF
 #CFLAGS += -DNDEBUG
 CFLAGS += -g
@@ -17,8 +21,8 @@ LIBS = \
 	   $(PATH_3RD)/pjsip/lib/libpj.a
 LIBS += -lm -pthread
 #LIBS += -framework Cocoa
-LIBS += -luuid
-LIBS += -lgnutls
+#LIBS += -luuid
+#LIBS += -lgnutls
 
 SRCS = main.c
 SRCS += websock/websock.c
