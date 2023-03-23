@@ -1175,7 +1175,7 @@ again:
 on_pending:
     *remainder = left_size;
     if (*remainder >= c->endpt->max_rx_bufsize) {
-        PJ_LOG(2, (THIS_FILE, "!!!read buffer is full (%d/%d)",
+        PJ_LOG(2, (THIS_FILE, "!!!read buffer is full (%u/%lu)",
                    c->endpt->max_rx_bufsize, left_size));
     }
     return PJ_TRUE;

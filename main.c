@@ -103,7 +103,7 @@ static pj_bool_t on_rx_msg(pj_websock_t *c,
     if (hdr->opcode == PJ_WEBSOCK_OP_TEXT) {
         PJ_LOG(4, (THIS_FILE,
                    "RX from %s:\n"
-                   "TEXT %s %ld/%ld/%ld [%.*s]",
+                   "TEXT %s %llu/%llu/%llu [%.*s]",
                    pj_websock_print(c, buf, sizeof(buf)),
                    hdr->mask ? "(masked)" : "", hdr->len, msg->has_read,
                    msg->data_len, (int)msg->data_len, data));
@@ -142,7 +142,7 @@ static pj_bool_t on_tx_msg(pj_websock_t *c,
     if (hdr->opcode == PJ_WEBSOCK_OP_TEXT) {
         PJ_LOG(4, (THIS_FILE,
                    "TX to %s:\n"
-                   "TEXT %s %ld/%ld [%.*s]",
+                   "TEXT %s %llu/%ld [%.*s]",
                    pj_websock_print(c, buf, sizeof(buf)),
                    hdr->mask ? "(masked)" : "", hdr->len, sent, (int)hdr->len,
                    data));

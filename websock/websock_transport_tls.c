@@ -349,7 +349,7 @@ static pj_bool_t on_data_read(pj_ssl_sock_t *ssock,
 
     if (status != PJ_SUCCESS) {
         /* immediately close sock when connection disconnected */
-        PJ_PERROR(2, (THIS_FILE, status, "%s() %s status:%d, size:%d",
+        PJ_PERROR(2, (THIS_FILE, status, "%s() %s status:%d, size:%lu",
                       __FUNCTION__, tp->base.pool->obj_name, status, size));
         pj_ssl_sock_close(ssock);
         tp->ssock = NULL;
