@@ -272,7 +272,7 @@ static pj_bool_t on_accept_complete(pj_ssl_sock_t *ssock,
     /* create new transport for the new connection */
     pj_status_t status;
     pj_websock_transport_t *tp = pj_ssl_sock_get_user_data(ssock);
-    pj_websock_transport_t *new_tp;
+    pj_websock_transport_t *new_tp = NULL;
     struct tls_transport *tls_tp = NULL;
     pj_websock_transport_param tp_param;
     pj_ioqueue_t *ioq = tp->ioq;
@@ -307,7 +307,7 @@ static pj_bool_t on_accept_complete(pj_ssl_sock_t *ssock,
 
     return PJ_TRUE;
 on_error:
-    if (tls_tp && tls_tp->ssock)
+    if (new_tp)
         tp_destroy(new_tp);
     else if (newsock)
         pj_ssl_sock_close(newsock);

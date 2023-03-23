@@ -435,8 +435,9 @@ pj_uint64_t pj_htonll(pj_uint64_t v)
     h |= (pj_uint64_t)*p << 0;
 
     return h;
-#endif
+#else
     return v;
+#endif
 }
 
 pj_uint64_t pj_ntohll(pj_uint64_t v)
@@ -455,8 +456,9 @@ pj_uint64_t pj_ntohll(pj_uint64_t v)
     *p = (pj_uint8_t)(v >> 0 & 0xff);
 
     return h;
-#endif
+#else
     return v;
+#endif
 }
 
 PJ_DEF(pj_status_t) pj_websock_send(pj_websock_t *c,
