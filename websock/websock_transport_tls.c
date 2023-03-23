@@ -297,13 +297,15 @@ static pj_bool_t on_accept_complete(pj_ssl_sock_t *ssock,
     tls_tp->ssock = newsock;
     pj_ssl_sock_set_user_data(newsock, new_tp);
 
-    /*notify accept event*/
-    if (tp->cb.on_accept_complete)
-        tp->cb.on_accept_complete(tp, new_tp, src_addr, src_addr_len);
     status = pj_ssl_sock_start_read(newsock, pool, tp->max_rx_bufsize, 0);
     if (status != PJ_SUCCESS) {
         PJ_PERROR(1, (THIS_FILE, status, "start read error"));
+        goto on_error;
     }
+
+    /*notify accept event*/
+    if (tp->cb.on_accept_complete)
+        tp->cb.on_accept_complete(tp, new_tp, src_addr, src_addr_len);
 
     return PJ_TRUE;
 on_error:
@@ -311,7 +313,7 @@ on_error:
         tp_destroy(new_tp);
     else if (newsock)
         pj_ssl_sock_close(newsock);
-    return PJ_TRUE;
+    return PJ_FALSE;
 }
 
 static pj_bool_t on_connect_complete(pj_ssl_sock_t *ssock, pj_status_t status)

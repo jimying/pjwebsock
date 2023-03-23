@@ -290,7 +290,7 @@ static pj_bool_t on_accept_complete(pj_activesock_t *asock,
     /* create new transport for the new connection */
     pj_status_t status;
     pj_websock_transport_t *tp = pj_activesock_get_user_data(asock);
-    pj_websock_transport_t *new_tp;
+    pj_websock_transport_t *new_tp = NULL;
     struct tcp_transport *tcp_tp = NULL;
     pj_websock_transport_param tp_param;
     pj_ioqueue_t *ioq = tp->ioq;
@@ -331,23 +331,25 @@ static pj_bool_t on_accept_complete(pj_activesock_t *asock,
 
     tcp_tp->asock = new_asock;
 
-    /*notify accept event*/
-    if (tp->cb.on_accept_complete)
-        tp->cb.on_accept_complete(tp, new_tp, src_addr, src_addr_len);
     status = pj_activesock_start_read(new_asock, pool, tp->max_rx_bufsize, 0);
     if (status != PJ_SUCCESS) {
         PJ_PERROR(1, (THIS_FILE, status, "start read error"));
+        goto on_error;
     }
+
+    /*notify accept event*/
+    if (tp->cb.on_accept_complete)
+        tp->cb.on_accept_complete(tp, new_tp, src_addr, src_addr_len);
 
     return PJ_TRUE;
 on_error:
-    if (tcp_tp && tcp_tp->asock)
+    if (new_tp)
         tp_destroy(new_tp);
     else if (new_asock)
         pj_activesock_close(new_asock);
     else if (newsock)
         pj_sock_close(newsock);
-    return PJ_TRUE;
+    return PJ_FALSE;
 }
 
 static pj_bool_t on_connect_complete(pj_activesock_t *asock, pj_status_t status)
