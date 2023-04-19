@@ -1179,6 +1179,10 @@ on_pending:
     if (*remainder >= c->endpt->max_rx_bufsize) {
         PJ_LOG(2, (THIS_FILE, "!!!read buffer is full (%u/%lu)",
                    c->endpt->max_rx_bufsize, left_size));
+        *remainder = 0;
+    }
+    if (*remainder > 0 && data != pdata) {
+        pj_memmove(data, pdata, *remainder);
     }
     return PJ_TRUE;
 
@@ -1208,7 +1212,11 @@ on_pending_payload:
             if (!c->cb.on_rx_msg(c, rdata, status))
                 return PJ_FALSE;
         }
-        *remainder -= c->endpt->max_rx_bufsize;
+        *remainder = 0;
+    }
+
+    if (*remainder > 0 && data != pdata) {
+        pj_memmove(data, pdata, *remainder);
     }
     return PJ_TRUE;
 }
