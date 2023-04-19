@@ -7,7 +7,7 @@ PJ_BEGIN_DECL
 /**
  *  http uri (http/websocket url)
  *  syntax:
- *      <scheme>://<user>:<pass>@<host>:<port>/<path>?<search>
+ *      <scheme>://<user>:<pass>@<host>:<port>/<path>?<query>
  */
 typedef struct pj_http_uri {
     pj_str_t scheme; /**< scheme, can be http/https/ws/wss */
@@ -16,7 +16,7 @@ typedef struct pj_http_uri {
     pj_str_t host;   /**< host */
     pj_str_t port;   /**< port */
     pj_str_t path;   /**< path */
-    pj_str_t search; /**< search argument, eg. ?x=1&y=2 (optional)*/
+    pj_str_t query;  /**< query argument, eg. ?x=1&y=2 (optional)*/
 } pj_http_uri;
 
 PJ_DECL(pj_status_t) pj_http_uri_parse(const char *str_url, pj_http_uri *uri);

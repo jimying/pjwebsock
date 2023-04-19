@@ -91,9 +91,9 @@ PJ_DEF(pj_status_t) pj_http_uri_parse(const char *str_url, pj_http_uri *uri)
             }
         }
 
-        /* parse search args */
+        /* parse query args */
         if (*scanner.curptr == '?' && scanner.end - scanner.curptr > 1) {
-            pj_strset3(&uri->search, scanner.curptr + 1, scanner.end);
+            pj_strset3(&uri->query, scanner.curptr + 1, scanner.end);
         }
     }
     PJ_CATCH_ANY
