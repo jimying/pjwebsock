@@ -1,11 +1,7 @@
-APP		   := test
-ARCH       := $(shell uname -p)
-BUILD      := obj
-ifeq ($(ARCH), x86_64)
-	PATH_3RD := thirdparty
-else
-	PATH_3RD := thirdparty.$(ARCH)
-endif
+APP   := test
+XOS   := $(shell uname)
+BUILD := obj
+
 CFLAGS := -Wall
 CFLAGS += -Wextra
 #CFLAGS += -Wunused-but-set-variable
@@ -15,14 +11,22 @@ CFLAGS += -DPJ_AUTOCONF
 #CFLAGS += -DNDEBUG
 CFLAGS += -g
 
-INC = -I./ -I websock -I $(PATH_3RD)/pjsip/include
-LIBS = \
-	   $(PATH_3RD)/pjsip/lib/libpjlib-util.a \
-	   $(PATH_3RD)/pjsip/lib/libpj.a
+CFLAGS += -I ./ -I ./websock
+CFLAGS += `pkg-config --cflags libpjproject`
+
+LIBS = `pkg-config --libs libpjproject`
 LIBS += -lm -pthread
-#LIBS += -framework Cocoa
-#LIBS += -luuid
-#LIBS += -lgnutls
+
+ifeq ($(XOS), Linux)
+	LIBS += -luuid
+	#LIBS += -lgnutls
+	#LIBS += -lcrypto -lssl
+else ifeq ($(XOS), Darwin)
+	LIBS += -framework Cocoa
+else ifeq ($(XOS), OpenBSD)
+	LIBS += -lcrypto -lssl
+endif
+
 
 SRCS = main.c
 SRCS += websock/websock.c
@@ -43,6 +47,6 @@ $(APP): $(OBJS)
 	$(CC) $(LDFLAGS) -o $@ $^  $(LIBS)
 
 $(BUILD)/%.o: %.c Makefile | $(BUILD)
-	$(CC) $(CFLAGS) $(INC) -c $< -o $@ $(DFLAGS)
+	$(CC) $(CFLAGS) -c $< -o $@ $(DFLAGS)
 
 
