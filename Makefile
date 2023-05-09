@@ -28,7 +28,7 @@ else ifeq ($(XOS), OpenBSD)
 endif
 
 
-SRCS = main.c
+SRCS = tests/test.c
 SRCS += websock/websock.c
 SRCS += websock/websock_transport.c
 SRCS += websock/websock_transport_tcp.c
@@ -41,7 +41,7 @@ clean:
 	@rm -rf $(APP) $(BUILD)
 
 $(BUILD): Makefile
-	@mkdir -p $(BUILD) $(BUILD)/websock
+	@mkdir -p $(BUILD)/tests $(BUILD)/websock
 
 $(APP): $(OBJS)
 	$(CC) $(LDFLAGS) -o $@ $^  $(LIBS)
