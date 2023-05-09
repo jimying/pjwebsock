@@ -18,7 +18,7 @@ How to build
    make install
    ```
 
-2. Build websock sample test
+2. Build with makefile (deprecated)
 
    ```bash
    # Set pkg-config search path
@@ -28,4 +28,18 @@ How to build
    make
    ```
 
+
+3. Build with cmake
+
+   ```bash
+   # Set pkg-config search path
+   export PKG_CONFIG_PATH=$HOME/3rd/pjproject/lib/pkgconfig:$PKG_CONFIG_PATH
+
+   # cmake build
+   mkdir build
+   cd build
+   cmake ../
+   make
+   make install
+   ```
 

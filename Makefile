@@ -2,14 +2,12 @@ APP   := test
 XOS   := $(shell uname)
 BUILD := obj
 
-CFLAGS := -Wall
+CFLAGS ?= -Wall
 CFLAGS += -Wextra
 #CFLAGS += -Wunused-but-set-variable
 #CFLAGS += -Wcast-function-type
 #CFLAGS += -Wsingle-bit-bitfield-constant-conversion
-CFLAGS += -DPJ_AUTOCONF
 #CFLAGS += -DNDEBUG
-CFLAGS += -g
 
 CFLAGS += -I ./ -I ./websock
 CFLAGS += `pkg-config --cflags libpjproject`
