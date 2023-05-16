@@ -23,5 +23,5 @@ check_clang_format() {
 
 # main
 check_clang_format
-clang-format --style=file -i websock/*.[ch] main.c
+clang-format --style=file -i websock/*.[ch] tests/*.[ch]
 
