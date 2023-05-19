@@ -9,9 +9,7 @@ find_package(PkgConfig REQUIRED)
 pkg_check_modules(PJ REQUIRED libpjproject)
 
 # Set cflags
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall")
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wextra")
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIC")
+add_compile_options(-Wall -Wextra -fPIC)
 
 # Set platform libs
 set(PLATFORM_LIBS ${PLATFORM_LIBS} -lm -pthread)
