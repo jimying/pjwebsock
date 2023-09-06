@@ -1131,6 +1131,9 @@ again:
 
             /* Get payload */
             if (left_size < expect_len) {
+                /* complete read the frame header, wait the payload */
+                left_size -= (expect_len - len);
+                pdata = (char *)p;
                 goto on_pending_payload;
             }
 
