@@ -294,6 +294,7 @@ PJ_DEF(pj_status_t) pj_websock_connect(pj_websock_endpoint *endpt,
     char str_host[PJ_MAX_HOSTNAME];
     pj_str_t host;
     pj_websock_transport_param tp_param;
+    pj_websock_transport_cb tp_cb;
     pj_http_uri http_uri;
     pj_http_msg msg_dummy;
     char msg_buf[2000];
@@ -377,10 +378,13 @@ PJ_DEF(pj_status_t) pj_websock_connect(pj_websock_endpoint *endpt,
                       pj_websock_transport_str(tp_type)));
         goto on_error;
     }
-    c->tp->user_data = c;
-    c->tp->cb.on_connect_complete = on_connect_complete;
-    c->tp->cb.on_data_read = on_data_read;
-    c->tp->cb.on_data_sent = on_data_sent;
+
+    pj_bzero(&tp_cb, sizeof(tp_cb));
+    tp_cb.on_connect_complete = on_connect_complete;
+    tp_cb.on_data_read = on_data_read;
+    tp_cb.on_data_sent = on_data_sent;
+    pj_websock_transport_set_callback(c->tp, &tp_cb);
+    pj_websock_transport_set_userdata(c->tp, c);
 
     switch_websock_state(c, PJ_WEBSOCK_STATE_CONNECTING);
     status = pj_websock_transport_start_connect(c->tp, &c->peer,
@@ -557,6 +561,7 @@ PJ_DEF(pj_status_t) pj_websock_listen(pj_websock_endpoint *endpt,
     pj_websock_t *ws;
     pj_pool_t *pool;
     pj_websock_transport_param tp_param;
+    pj_websock_transport_cb tp_cb;
     pj_websock_transport_t *tp = NULL;
     char sbuf[200];
 
@@ -603,8 +608,10 @@ PJ_DEF(pj_status_t) pj_websock_listen(pj_websock_endpoint *endpt,
         goto on_error;
     }
 
-    tp->user_data = ws;
-    tp->cb.on_accept_complete = on_accept_complete;
+    pj_bzero(&tp_cb, sizeof(tp_cb));
+    tp_cb.on_accept_complete = on_accept_complete;
+    pj_websock_transport_set_callback(tp, &tp_cb);
+    pj_websock_transport_set_userdata(tp, ws);
     status = pj_websock_transport_start_accept(tp, local_addr,
                                                pj_sockaddr_get_len(local_addr));
     if (status != PJ_SUCCESS) {
@@ -816,7 +823,7 @@ PJ_DEF(pj_status_t) pj_websock_set_support_subproto(pj_websock_t *srv,
 static pj_bool_t on_connect_complete(pj_websock_transport_t *t,
                                      pj_status_t status)
 {
-    pj_websock_t *c = (pj_websock_t *)t->user_data;
+    pj_websock_t *c = pj_websock_transport_get_userdata(t);
 
     PJ_PERROR(6, (THIS_FILE, status, "%s() %s status:%d", __FUNCTION__,
                   c->pool->obj_name, status));
@@ -861,9 +868,10 @@ static pj_bool_t on_accept_complete(pj_websock_transport_t *t,
                                     int src_addr_len)
 {
     PJ_UNUSED_ARG(src_addr_len);
-    pj_websock_t *parent = (pj_websock_t *)t->user_data;
+    pj_websock_t *parent = pj_websock_transport_get_userdata(t);
     pj_websock_t *newc;
     pj_websock_endpoint *endpt = parent->endpt;
+    pj_websock_transport_cb tp_cb;
     pj_pool_t *pool;
 
     /* new websocket connection */
@@ -880,9 +888,11 @@ static pj_bool_t on_accept_complete(pj_websock_transport_t *t,
     newc->parent = parent;
 
     /* setup transport callbacks */
-    newt->user_data = newc;
-    newt->cb.on_data_read = on_data_read;
-    newt->cb.on_data_sent = on_data_sent;
+    pj_bzero(&tp_cb, sizeof(tp_cb));
+    tp_cb.on_data_read = on_data_read;
+    tp_cb.on_data_sent = on_data_sent;
+    pj_websock_transport_set_callback(newt, &tp_cb);
+    pj_websock_transport_set_userdata(newt, newc);
 
     pj_list_push_front(endpt->conn_list, newc);
 
@@ -980,7 +990,7 @@ static pj_bool_t on_data_read(pj_websock_transport_t *t,
                               pj_status_t status,
                               pj_size_t *remainder)
 {
-    pj_websock_t *c = (pj_websock_t *)t->user_data;
+    pj_websock_t *c = pj_websock_transport_get_userdata(t);
     pj_size_t left_size = size;
     char *pdata = (char *)data;
     pj_websock_rx_data *rdata = &c->rdata;
@@ -1228,7 +1238,7 @@ static pj_bool_t on_data_sent(pj_websock_transport_t *t,
                               pj_ioqueue_op_key_t *send_key,
                               pj_ssize_t sent)
 {
-    pj_websock_t *c = (pj_websock_t *)t->user_data;
+    pj_websock_t *c = pj_websock_transport_get_userdata(t);
     pj_websock_tx_data *tdata = (pj_websock_tx_data *)send_key->user_data;
     PJ_LOG(6, (THIS_FILE, "%s() %s sent:%d", __FUNCTION__, c->pool->obj_name,
                sent));

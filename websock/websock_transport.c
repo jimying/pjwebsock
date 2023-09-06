@@ -42,3 +42,30 @@ PJ_DEF(pj_status_t) pj_websock_transport_send(pj_websock_transport_t *t,
     PJ_ASSERT_RETURN(t && t->op, PJ_EINVALIDOP);
     return t->op->send(t, send_key, data, size, flags);
 }
+
+PJ_DEF(pj_status_t) pj_websock_transport_set_userdata(pj_websock_transport_t *t,
+                                                      void *user_data)
+{
+    PJ_ASSERT_RETURN(t, PJ_EINVAL);
+    t->user_data = user_data;
+    return PJ_SUCCESS;
+}
+
+PJ_DEF(void *) pj_websock_transport_get_userdata(pj_websock_transport_t *t)
+{
+    PJ_ASSERT_RETURN(t, NULL);
+    return t->user_data;
+}
+
+PJ_DEF(pj_status_t)
+pj_websock_transport_set_callback(pj_websock_transport_t *t,
+                                  pj_websock_transport_cb *cb)
+{
+    PJ_ASSERT_RETURN(t, PJ_EINVAL);
+    if (cb) {
+        pj_memcpy(&t->cb, cb, sizeof(pj_websock_transport_cb));
+    } else {
+        pj_bzero(&t->cb, sizeof(pj_websock_transport_cb));
+    }
+    return PJ_SUCCESS;
+}
