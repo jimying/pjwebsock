@@ -321,7 +321,7 @@ int main(int argc, char **argv)
         {
             hdr.key = pj_str("Sec-WebSocket-Protocol");
             hdr.val = pj_str("pjsip");
-            pj_websock_connect(g_ws_endpt, "ws://127.0.0.1:7788/tcp", &cb, NULL,
+            pj_websock_connect(g_ws_endpt, "ws://127.0.0.1:7788/tcp?foo=1&bar=2", &cb, NULL,
                                &hdr, 1, &wc);
             pj_websock_connect(g_ws_endpt, "wss://127.0.0.1:7789/tls", &cb,
                                NULL, &hdr, 1, &wc);

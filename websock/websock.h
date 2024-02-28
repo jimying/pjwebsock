@@ -368,6 +368,13 @@ PJ_DECL(int) pj_websock_get_ready_state(pj_websock_t *c);
 PJ_DECL(const char *) pj_websock_get_request_path(pj_websock_t *c);
 
 /**
+ * Get Websocket query param
+ * @param c    The websocket connection object
+ * @return     The query param or NULL
+ */
+PJ_DECL(const char *) pj_websock_get_query_param(pj_websock_t *c);
+
+/**
  * Get Websocket sub-protocol
  * @param c    The websocket connection object
  * @return     The sub-protol or NULL
