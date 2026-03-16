@@ -832,6 +832,11 @@ PJ_DEF(pj_status_t) pj_websock_set_support_subproto(pj_websock_t *srv,
     return PJ_SUCCESS;
 }
 
+PJ_DECL(pj_websock_t *) pj_websock_get_parent(pj_websock_t *c)
+{
+    return c->parent;
+}
+
 static pj_bool_t on_connect_complete(pj_websock_transport_t *t,
                                      pj_status_t status)
 {

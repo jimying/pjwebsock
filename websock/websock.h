@@ -416,6 +416,17 @@ PJ_DECL(const char *) pj_websock_state_str(int state);
  */
 PJ_DECL(const char *) pj_websock_transport_str(int type);
 
+/**
+ * Get websocket parent
+ * A new connection(client) object get the websocket server object (created by
+ * \a pj_websock_listen)
+ *
+ * @param c    The websocket connection object
+ * @return   the server object
+ *
+ */
+PJ_DECL(pj_websock_t *) pj_websock_get_parent(pj_websock_t *c);
+
 PJ_END_DECL
 /**
  * @}
